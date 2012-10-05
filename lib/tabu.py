@@ -1,15 +1,16 @@
 #!/usr/bin/env python3
 
-MAX_SIZE = 10
+MAX_SIZE = 5
 
 def contains_tabu_elements(candidate, lst):
-    pass
+    return candidate in lst
 
 def expire_features(lst):
-    pass
+    del lst[0]
+    return lst
 
 def feature_differences(candidate, best):
-    pass
+    return candidate
 
 def fitness(s):
     score = 0
@@ -48,9 +49,6 @@ def make_consistent(p, c, d):
                     p_[i][k] = 0
     return p_
 
-def make_initial_solution(s):
-    pass
-
 def neighborhood(s, p, c, d):
     s_ = [[j for j in i] for i in s]
     for i in range(len(p)):
@@ -69,29 +67,28 @@ def neighborhood(s, p, c, d):
                 if consistent:
                     s_[i][j] = 1
                     indices.append(j)
-                    #indices = list(set(indices))
                     yield s_
 
 def tabu(p, c, d):
     # todo: use a data structure to keep the indices instead of computing them everytime
     s_best = make_consistent(p, c, d)
-    # s_best = make_initial_solution(s_best)
     s_best_score = fitness(s_best)
     tabu_list = []
     while stopping_condition():
         candidate_list = []
         for s_candidate in neighborhood(s_best, p, c, d):
             if not contains_tabu_elements(s_candidate, tabu_list):
-                tabu_list.append(s_candidate)
+                candidate_list.append(s_candidate)
         s_candidate = locate_best_candidate(candidate_list)
         s_candidate_score = fitness(s_candidate)
-    if s_candidate_score > s_best_score:
-        s_best = s_candidate
-        s_best_score = s_candidate_score
-        tabu_list.append(feature_differences(s_candidate, s_best))
-        while len(tabu_list) > MAX_SIZE:
-            expire_features(tabu_list)
+        if s_candidate_score > s_best_score:
+            s_best = s_candidate
+            s_best_score = s_candidate_score
+            tabu_list.append(feature_differences(s_candidate, s_best))
+            while len(tabu_list) > MAX_SIZE:
+                expire_features(tabu_list)
     return s_best
 
 def stopping_condition():
-    pass
+    for i in range(20):
+        yield i < 19
