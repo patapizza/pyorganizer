@@ -11,8 +11,12 @@ def expire_features(lst):
 def feature_differences(candidate, best):
     pass
 
-def fitness(candidate):
-    pass
+def fitness(s):
+    score = 0
+    for i in range(len(s)):
+        for j in range(len(s[i])):
+            score += s[i][j]
+    return score
 
 def locate_best_candidate(lst):
     best = lst[0]
@@ -47,17 +51,36 @@ def make_consistent(p, c, d):
 def make_initial_solution(s):
     pass
 
-def neighborhood(s):
-    pass
+def neighborhood(s, p, c, d):
+    s_ = [[j for j in i] for i in s]
+    for i in range(len(p)):
+        indices = []
+        for j in range(len(s[i])):
+            if s[i][j] == 1:
+                indices.append(j)
+        for j in range(len(p[i])):
+            # todo: check c-consistency
+            if p[i][j] == 1 and s[i][j] == 0:
+                consistent = True
+                for k in indices:
+                    if j != k and d[j][k] == 1:
+                         consistent = False
+                         break
+                if consistent:
+                    s_[i][j] = 1
+                    indices.append(j)
+                    #indices = list(set(indices))
+                    yield s_
 
-def tabu(participants):
-    s_best = make_consistent(participants)
+def tabu(p, c, d):
+    # todo: use a data structure to keep the indices instead of computing them everytime
+    s_best = make_consistent(p, c, d)
     # s_best = make_initial_solution(s_best)
     s_best_score = fitness(s_best)
     tabu_list = []
     while stopping_condition():
         candidate_list = []
-        for s_candidate in neighborhood(s_best):
+        for s_candidate in neighborhood(s_best, p, c, d):
             if not contains_tabu_elements(s_candidate, tabu_list):
                 tabu_list.append(s_candidate)
         s_candidate = locate_best_candidate(candidate_list)
