@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-MAX_SIZE = 5
+MAX_SIZE = 5 # size of the tabu list
 
 def contains_tabu_elements(candidate, lst):
     return candidate in lst
@@ -12,6 +12,7 @@ def expire_features(lst):
 def feature_differences(candidate, best):
     return candidate
 
+# objective: maximize the total amount of participants
 def fitness(s):
     score = 0
     for i in range(len(s)):
@@ -19,6 +20,7 @@ def fitness(s):
             score += s[i][j]
     return score
 
+# objective: balance the |participants|/capacity ratio between all events
 def fitness_mean(s, c):
     score = float(1)
     cols = [0 for i in range(len(s[0]))]
@@ -26,7 +28,6 @@ def fitness_mean(s, c):
         for j in range(len(s)):
             cols[i] += s[j][i]
         score *= float(cols[i]) / float(c[i]) if c[i] > 0 else float(1)
-    print("fitness of %s :: %s :: %f" % (s, c, score))
     return score
 
 def locate_best_candidate(lst):
@@ -43,6 +44,7 @@ def make_consistent(p, c, d):
     # we assume that p is c-consistent (because of the waiting list)
     # we still have to make it d-consistent
     p_ = [[j for j in i] for i in p]
+    # saving indices for futher use
     indices = [[] for i in range(len(p_))]
     for i in range(len(p_)):
         l = []
@@ -50,23 +52,24 @@ def make_consistent(p, c, d):
             if p_[i][j] == 1:
                 indices[i].append(j)
     for i in range(len(indices)):
-        if len(indices[i]) < 2:
+        if len(indices[i]) < 2: # if there's only one event, it can't overlap with another one
             continue
         for j in indices[i]:
             for k in indices[i]:
-                if not j == k and d[j][k] == 1:
+                if not j == k and d[j][k] == 1: # overlapping, but not with itself
                     p_[i][j] = 0
                     p_[i][k] = 0
     return p_
 
 def neighborhood(s, p, c, d):
     for i in range(len(p)):
+        # saving indices for further use
         indices = []
         for j in range(len(s[i])):
             if s[i][j] == 1:
                 indices.append(j)
         for j in range(len(p[i])):
-            if p[i][j] == 1 and s[i][j] == 0:
+            if p[i][j] == 1 and s[i][j] == 0: # we'd like to improve that
                 if c[j] > 0: # capacity of event j is not infinite
                     capacity = 0
                     for k in range(len(s)):
@@ -74,19 +77,21 @@ def neighborhood(s, p, c, d):
                     if capacity == c[j]:
                         print("event %d is full (%d)" % (j, capacity))
                         continue
+                # checking d-consistency
                 consistent = True
                 for k in indices:
                     if j != k and d[j][k] == 1:
                         consistent = False
-                        print("(%d,%d) not consistent" % (i,j))
+                        print("(%d,%d) not consistent" % (i, j))
                         break
-                if consistent:
+                if consistent: # we've (strictly) improved the current solution
                     s_ = [[x for x in y] for y in s]
                     s_[i][j] = 1
                     yield s_
-                else: # depending on objective, may be useless (symmetries)
+                # depending on objective, the following may be useless (symmetry)
+                else: # we can just swap two overlapping events
                     for k in indices:
-                        if j != k and d[j][k] == 1:
+                        if j != k and d[j][k] == 1: # overlapping, but not with itself
                             s_ = [[x for x in y] for y in s]
                             s_[i][j] = 1
                             s_[i][k] = 0
@@ -95,8 +100,8 @@ def neighborhood(s, p, c, d):
 def tabu(p, c, d, attemps = 20):
     global MAX_TRY
     MAX_TRY = attemps
-    # todo: use a data structure to keep the indices instead of computing them everytime
-    # todo: use c as the remaining places of events instead of capacities
+    # TODO: use a data structure to keep the indices instead of computing them everytime
+    # TODO: use c as the remaining seats of events instead of capacities (be careful with unlimited events)
     s_best = make_consistent(p, c, d)
     s_best_score = fitness(s_best)
     tabu_list = []
