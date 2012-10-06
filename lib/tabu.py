@@ -19,6 +19,16 @@ def fitness(s):
             score += s[i][j]
     return score
 
+def fitness_mean(s, c):
+    score = float(1)
+    cols = [0 for i in range(len(s[0]))]
+    for i in range(len(s[0])):
+        for j in range(len(s)):
+            cols[i] += s[j][i]
+        score *= float(cols[i]) / float(c[i]) if c[i] > 0 else float(1)
+    print("fitness of %s :: %s :: %f" % (s, c, score))
+    return score
+
 def locate_best_candidate(lst):
     best = lst[0]
     best_score = fitness(best)

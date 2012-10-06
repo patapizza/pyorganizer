@@ -16,6 +16,12 @@ class TabuTest(unittest.TestCase):
         self.assertEqual(2, fitness(self.p_), "wrong fitness score for p_")
         self.assertEqual(10, fitness(self.d), "wrong fitness score for d")
 
+    def test_fitness_mean(self):
+        p = [[1, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]]
+        self.assertEqual(0.0, fitness_mean(p, self.c), "wrong fitness_mean score")
+        p = [[1, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 0, 1]]
+        self.assertEqual(0.16666666666666666, fitness_mean(p, self.c), "wrong fitness_mean score")
+
     def test_make_consistent(self):
         self.assertEqual(self.p_, make_consistent(self.p, self.c, self.d), "inconsistent basic solution")
 
