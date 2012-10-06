@@ -57,12 +57,13 @@ def neighborhood(s, p, c, d):
                 indices.append(j)
         for j in range(len(p[i])):
             if p[i][j] == 1 and s[i][j] == 0:
-                capacity = 0
-                for k in range(len(s)):
-                    capacity += s[k][j]
-                if capacity == c[j]:
-                    print("event %d is full (%d)" % (j, capacity))
-                    continue
+                if c[j] > 0: # capacity of event j is not infinite
+                    capacity = 0
+                    for k in range(len(s)):
+                        capacity += s[k][j]
+                    if capacity == c[j]:
+                        print("event %d is full (%d)" % (j, capacity))
+                        continue
                 consistent = True
                 for k in indices:
                     if j != k and d[j][k] == 1:
@@ -73,7 +74,7 @@ def neighborhood(s, p, c, d):
                     s_ = [[x for x in y] for y in s]
                     s_[i][j] = 1
                     yield s_
-                else:
+                else: # depending on objective, may be useless (symmetries)
                     for k in indices:
                         if j != k and d[j][k] == 1:
                             s_ = [[x for x in y] for y in s]

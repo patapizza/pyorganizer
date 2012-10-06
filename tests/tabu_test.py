@@ -39,6 +39,7 @@ class TabuTest(unittest.TestCase):
     def test_tabu(self):
         s0 = [[1, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0]]
         self.assertEqual(s0, tabu(self.p, self.c, self.d), "solution is different than expected")
+        self.assertEqual(s0, tabu(self.p, [2, 0, 1, 4], self.d), "solution is different than expected")
         s1 = [[1, 0, 1, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 0, 0, 1], [0, 0, 0, 1]]
         self.assertEqual(s1, tabu(self.p, [2, 2, 1, 4], self.d), "solution is different than expected")
 
