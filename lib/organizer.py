@@ -41,7 +41,7 @@ class Organizer:
         for i in range(len(s[0])):
             for j in range(len(s)):
                 cols[i] += s[j][i]
-            score *= float(cols[i]) / float(self.c[i]) if self.c[i] > 0 else float(1)
+            score *= float(cols[i]) / (float(self.c[i]) if self.c[i] > 0 else float(1))
         return score
 
     def locate_best_candidate(self, lst):
@@ -105,7 +105,7 @@ class Organizer:
                         s_[i][j] = 1
                         yield s_
                     # depending on objective, the following may be useless (symmetry)
-                    else: # we can just swap two overlapping events
+                    else: # we can only swap two overlapping events
                         for k in indices:
                             if j != k and self.d[j][k] == 1: # overlapping, but not with itself
                                 s_ = [[x for x in y] for y in s]
@@ -115,6 +115,9 @@ class Organizer:
 
     def set_capacity(self, c):
         self.c = c
+
+    def set_fitness(self, fitness_option):
+        self.fitness_option = fitness_option
 
     def set_preferences(self, p):
         self.p = p
@@ -150,9 +153,9 @@ class Organizer:
             s_candidate = self.locate_best_candidate(candidate_list)
             s_candidate_score = self.fitness(s_candidate)
             if s_candidate_score > s_best_score:
+                tabu_list.append(self.feature_differences(s_candidate, s_best))
                 s_best = s_candidate
                 s_best_score = s_candidate_score
-                tabu_list.append(self.feature_differences(s_candidate, s_best))
                 while len(tabu_list) > self.MAX_SIZE:
                     self.expire_features(tabu_list)
         self.MAX_TRY = self.attemps
