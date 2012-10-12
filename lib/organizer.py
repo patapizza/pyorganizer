@@ -41,7 +41,7 @@ class Organizer:
         for i in range(len(s[0])):
             for j in range(len(s)):
                 cols[i] += s[j][i]
-            score *= float(cols[i]) / (float(self.c[i]) if self.c[i] > 0 else float(1))
+            score *= float(cols[i]) / float(self.c[i]) if self.c[i] > 0 else float(1)
         return score
 
     def locate_best_candidate(self, lst):
