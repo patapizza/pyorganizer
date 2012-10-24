@@ -8,6 +8,7 @@ class Organizer:
         self.d = d
         self.attemps = attemps # amount of times to iterate
         self.MAX_SIZE = 5 # size of the tabu list
+        self.g = ([x for x in range(len(p))], [])
 
     def contains_tabu_elements(self, moves, lst):
         for m in moves:
@@ -20,7 +21,21 @@ class Organizer:
         return lst
 
     def fitness(self, s):
-        return self.fitness_max(s)
+        return self.fitness_friends(s) + self.fitness_max(s)
+
+    # objective: max amount of edges in the graph of connections between attending participants of each event
+    def fitness_friends(self, s):
+        v, e = self.g
+        score = 0
+        for j in range(len(s[0])):
+            _v = [x for x in v]
+            _e = [(x,y) for x, y in e]
+            for i in range(len(s)):
+                if s[i][j] == 0:
+                    _v.remove(i)
+                    _e = [(x,y) for x, y in _e if x != i and y != i]
+            score += len(_e)
+        return score
 
     # objective: maximize the total amount of participants
     def fitness_max(self, s):
@@ -39,6 +54,9 @@ class Organizer:
                 cols[i] += s[j][i]
             score *= float(cols[i]) / float(self.c[i]) if self.c[i] > 0 else float(1)
         return score
+
+    def init_friends(self, pairs):
+        self.g = ([x for x in range(len(self.p))], pairs)
 
     def locate_best_candidate(self, lst):
         best = lst[0]

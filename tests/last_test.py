@@ -10,6 +10,7 @@ class LastTest(unittest.TestCase):
         self.c = [2, 6, 1, 4]
         self.d = [[1, 1, 0, 1], [1, 1, 0, 1], [0, 0, 1, 0], [1, 1, 0, 1]]
         self.o = Organizer(self.p, self.c, self.d)
+        self.o.init_friends([(0,1),(2,5),(2,6),(5,6)])
 
     def test_make_consistent(self):
         print(self.o.make_consistent())
