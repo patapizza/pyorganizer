@@ -2,23 +2,25 @@
 
 class Organizer:
 
-    def __init__(self, p, c, d, attemps = 20):
+    def __init__(self, p, c, d, attemps = 100):
         self.p = p
         self.c = c
         self.d = d
         self.attemps = attemps # amount of times to iterate
-        self.MAX_SIZE = 5 # size of the tabu list
+        self.MAX_SIZE = len(p) / 2 # size of the tabu list
         self.g = ([x for x in range(len(p))], [])
 
     def contains_tabu_elements(self, moves, lst):
         for m in moves:
-            if m in lst:
-                return True
+            for e in lst:
+                if m in e[1]:
+                    return True
         return False
 
     def expire_features(self, lst):
-        del lst[0]
-        return lst
+        for i in range(len(lst)):
+            lst[i][0] -= 1
+        return [e for e in lst if e[0] > 0]
 
     def fitness(self, s):
         return self.fitness_friends(s) + self.fitness_max(s)
@@ -109,6 +111,7 @@ class Organizer:
                     s_ = [[x for x in y] for y in s]
                     s_[i][j] = 0
                     print("REMOVE %d" % i)
+                    # useless since it won't outperform the best solution found so far
                     yield (s_, [i]) # REMOVE
             for j in range(len(self.p[i])):
                 if self.p[i][j] == 1 and s[i][j] == 0: # we'd like to improve that
@@ -131,6 +134,7 @@ class Organizer:
                         s_[i][j] = 1
                         print("ADD %d" % i)
                         yield (s_, [i]) # ADD
+                    # TODO: verify d-consistency for swaps!
                     for k in range(len(self.p)):
                         if s[k][j] == 1:
                             s_ = [[x for x in y] for y in s]
@@ -162,15 +166,18 @@ class Organizer:
                 if not self.contains_tabu_elements(moves, tabu_list):
                     candidate_list.append((s_candidate, moves))
             if len(candidate_list) == 0:
+                print("no candidate")
                 break
             s_candidate, moves = self.locate_best_candidate(candidate_list)
             s_candidate_score = self.fitness(s_candidate)
+            tabu_list = self.expire_features(tabu_list)
             if s_candidate_score > s_best_score:
-                tabu_list.extend(moves)
+                tabu_list.append([self.attemps / 4, moves])
                 s_best = s_candidate
                 s_best_score = s_candidate_score
                 while len(tabu_list) > self.MAX_SIZE:
-                    self.expire_features(tabu_list)
+                    tabu_list = self.expire_features(tabu_list)
+            print("tabu_list: %s" % tabu_list)
             print("BEST: %s" % s_best)
         self.MAX_TRY = self.attemps
         return s_best
