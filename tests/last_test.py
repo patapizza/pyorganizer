@@ -20,6 +20,11 @@ class LastTest(unittest.TestCase):
         self.assertEqual(7, self.o.fitness_max(self.s[0]))
         self.assertEqual(7, self.o.fitness_max(self.s[1]))
 
+    def test_fitness_emin(self):
+        self.assertEqual(6, self.o.fitness_emin(self.s[0]))
+        self.o.set_emin([2, 1, 1, 1, 1, 1])
+        self.assertEqual(5.5, self.o.fitness_emin(self.s[0]))
+
     def test_fitness_friends(self):
         self.assertEqual(0, self.o.fitness_friends(self.s[0]))
         self.o.init_friends([(1, 2), (2, 5)])

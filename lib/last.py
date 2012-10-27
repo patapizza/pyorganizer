@@ -14,6 +14,7 @@ class Organizer:
             for y in range(len(p[0])):
                 score += y
             self.emax.append(score)
+        self.emin = [0 for x in range(len(p))] # min events that participants'd like to attend
         self.g = ([x for x in range(len(p))], []) # friends' graph
 
     def contains_tabu_elements(self, moves, lst):
@@ -29,7 +30,17 @@ class Organizer:
         return [e for e in lst if e[0] > 0]
 
     def fitness(self, s):
-        return self.fitness_friends(s) + self.fitness_max(s)
+        return self.fitness_friends(s) + self.fitness_max(s) + self.fitness_emin(s)
+
+    def fitness_emin(self, s):
+        total = 0
+        for i in range(len(s)):
+            score = 0
+            for j in range(len(s[i])):
+                score += s[i][j]
+            score_ = score / self.emin[i] if self.emin[i] > 0 else 1
+            total += score_ if score_ <= 1 else 1
+        return total
 
     # objective: max amount of edges in the graph of connections between attending participants of each event
     def fitness_friends(self, s):
@@ -173,7 +184,22 @@ class Organizer:
         self.c = c
 
     def set_emax(self, emax):
-        self.emax = emax
+        consistent = True
+        for i in range(len(emax)):
+            if emax[i] < self.emin[i]:
+                consistent = False
+                break
+        if consistent:
+            self.emax = emax
+
+    def set_emin(self, emin):
+        consistent = True
+        for i in range(len(emin)):
+            if emin[i] > self.emax[i]:
+                consistent = False
+                break
+        if consistent:
+            self.emin = emin
 
     def set_preferences(self, p):
         self.p = p
