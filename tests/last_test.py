@@ -12,6 +12,10 @@ class LastTest(unittest.TestCase):
         self.o = Organizer(self.p, self.c, self.d)
         self.s = [[[1, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 1, 0], [0, 1, 0, 0]], [[1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 1, 1, 0], [0, 1, 0, 0]]]
 
+    def test_emax(self):
+        self.o.set_emax([4, 2, 2, 2, 1, 2])
+        self.assertEqual([[1, 0, 0, 0], [1, 0, 0, 0], [0, 1, 0, 0], [0, 1, 0, 0], [0, 0, 1, 0], [0, 1, 0, 0]], self.o.tabu())
+
     def test_fitness_max(self):
         self.assertEqual(7, self.o.fitness_max(self.s[0]))
         self.assertEqual(7, self.o.fitness_max(self.s[1]))

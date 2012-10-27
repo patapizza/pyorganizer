@@ -8,7 +8,13 @@ class Organizer:
         self.d = d
         self.attemps = attemps # amount of times to iterate
         self.MAX_SIZE = len(p) / 2 # size of the tabu list
-        self.g = ([x for x in range(len(p))], [])
+        self.emax = [] # max events that participants want to attend
+        for x in range(len(p)):
+            score = 0
+            for y in range(len(p[0])):
+                score += y
+            self.emax.append(score)
+        self.g = ([x for x in range(len(p))], []) # friends' graph
 
     def contains_tabu_elements(self, moves, lst):
         for m in moves:
@@ -104,9 +110,11 @@ class Organizer:
     def neighborhood(self, s):
         for i in range(len(self.p)):
             indices = [] # saving indices for checking d-consistency
+            score = 0 # counting participations for checking emax-consistency
             for j in range(len(s[i])):
                 if s[i][j] == 1:
                     indices.append(j)
+                    score += 1
                     s_ = [[x for x in y] for y in s]
                     s_[i][j] = 0
                     print("REMOVE person %d from event %d" % (i, j))
@@ -114,6 +122,25 @@ class Organizer:
                     yield (s_, [i]) # REMOVE
             for j in range(len(self.p[i])):
                 if self.p[i][j] == 1 and s[i][j] == 0: # we'd like to improve that
+                    # swap one person between two events
+                    for k in range(len(self.p[i])):
+                        if j != k and s[i][k] == 1:
+                            s_ = [[x for x in y] for y in s]
+                            s_[i][j] = 1
+                            s_[i][k] = 0
+                            indices_ = [x for x in indices]
+                            indices_.pop(indices_.index(k))
+                            # checking d-consistency
+                            consistent = True
+                            for l in indices_:
+                                if j != l and self.d[j][l] == 1:
+                                    consistent = False
+                                    break
+                            if consistent:
+                                print("SWAP person %d from event %d to event %d" % (i, k, j))
+                                yield (s_, [i]) # SWAP
+                    if score == self.emax[i]: # checking emax-consistency
+                        continue
                     # checking d-consistency
                     consistent = True
                     for k in indices:
@@ -141,26 +168,12 @@ class Organizer:
                         s_[i][j] = 1
                         print("ADD person %d to event %d" % (i, j))
                         yield (s_, [i]) # ADD
-                    # swap one person between two events
-                    for k in range(len(self.p[i])):
-                        if j != k and s[i][k] == 1:
-                            s_ = [[x for x in y] for y in s]
-                            s_[i][j] = 1
-                            s_[i][k] = 0
-                            indices_ = [x for x in indices]
-                            indices_.pop(indices_.index(k))
-                            # checking d-consistency
-                            consistent = True
-                            for l in indices_:
-                                if j != l and self.d[j][l] == 1:
-                                    consistent = False
-                                    break
-                            if consistent:
-                                print("SWAP person %d from event %d to event %d" % (i, k, j))
-                                yield (s_, [i]) # SWAP
 
     def set_capacity(self, c):
         self.c = c
+
+    def set_emax(self, emax):
+        self.emax = emax
 
     def set_preferences(self, p):
         self.p = p
