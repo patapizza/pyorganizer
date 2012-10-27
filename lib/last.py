@@ -103,45 +103,61 @@ class Organizer:
 
     def neighborhood(self, s):
         for i in range(len(self.p)):
-            # saving indices for further use
-            indices = []
+            indices = [] # saving indices for checking d-consistency
             for j in range(len(s[i])):
                 if s[i][j] == 1:
                     indices.append(j)
                     s_ = [[x for x in y] for y in s]
                     s_[i][j] = 0
-                    print("REMOVE %d" % i)
+                    print("REMOVE person %d from event %d" % (i, j))
                     # useless since it won't outperform the best solution found so far
                     yield (s_, [i]) # REMOVE
             for j in range(len(self.p[i])):
                 if self.p[i][j] == 1 and s[i][j] == 0: # we'd like to improve that
-                    if self.c[j] > 0: # capacity of event j is not infinite
-                        capacity = 0
-                        for k in range(len(s)):
-                            capacity += s[k][j]
-                        if capacity == self.c[j]:
-                            print("event %d is full (%d)" % (j, capacity))
-                            continue
                     # checking d-consistency
                     consistent = True
                     for k in indices:
                         if j != k and self.d[j][k] == 1:
                             consistent = False
-                            print("(%d,%d) not consistent" % (i, j))
                             break
+                    if consistent:
+                        # swap one event between two people
+                        for k in range(len(self.p)):
+                            if s[k][j] == 1:
+                                s_ = [[x for x in y] for y in s]
+                                s_[k][j] = 0
+                                s_[i][j] = 1
+                                print("SWAP event %d from person %d to person %d" % (j, k, i))
+                                yield (s_, [i, k]) # SWAP
+                    # checking c-consistency
+                    if self.c[j] > 0: # capacity of event j is not infinite
+                        capacity = 0
+                        for k in range(len(s)):
+                            capacity += s[k][j]
+                        if capacity == self.c[j]:
+                            continue
                     if consistent: # we've (strictly) improved the current solution
                         s_ = [[x for x in y] for y in s]
                         s_[i][j] = 1
-                        print("ADD %d" % i)
+                        print("ADD person %d to event %d" % (i, j))
                         yield (s_, [i]) # ADD
-                    # TODO: verify d-consistency for swaps!
-                    for k in range(len(self.p)):
-                        if s[k][j] == 1:
+                    # swap one person between two events
+                    for k in range(len(self.p[i])):
+                        if j != k and s[i][k] == 1:
                             s_ = [[x for x in y] for y in s]
-                            s_[k][j] = 0
                             s_[i][j] = 1
-                            print("SWAP %d %d" % (i, k))
-                            yield (s_, [i, k]) # SWAP
+                            s_[i][k] = 0
+                            indices_ = [x for x in indices]
+                            indices_.pop(indices_.index(k))
+                            # checking d-consistency
+                            consistent = True
+                            for l in indices_:
+                                if j != l and self.d[j][l] == 1:
+                                    consistent = False
+                                    break
+                            if consistent:
+                                print("SWAP person %d from event %d to event %d" % (i, k, j))
+                                yield (s_, [i]) # SWAP
 
     def set_capacity(self, c):
         self.c = c
@@ -178,6 +194,6 @@ class Organizer:
                 while len(tabu_list) > self.MAX_SIZE:
                     tabu_list = self.expire_features(tabu_list)
             print("tabu_list: %s" % tabu_list)
-            print("BEST: %s" % s_best)
+            print("BEST: %s (%d)" % (s_best, s_best_score))
         self.MAX_TRY = self.attemps
         return s_best
