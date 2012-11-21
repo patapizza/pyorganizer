@@ -2,11 +2,61 @@
 
 import random
 
-'''
-    parameters to define:
-        attemps - the number of iterations to perform
-        tenure - the number of iterations during which elements are tabu-active
-'''
+class Status:
+
+    '''
+        input:
+            _p: the preferences matrix
+            _c: the capacities vector
+            _d: the exclusion matrix
+            _attemps: the number of iterations to perform
+            _tenure: the number of iterations during which elements are tabu-active
+    '''
+    def __init__(self, p, c, d, attemps = 20, tenure = 2):
+        self.p = p
+        self.c = c
+        self.d = d
+        self.attemps = attemps
+        self.tenure = tenure
+        self.emax = [] '''max number of events that participants would like to attend'''
+        for p_ in p:
+            participations = 0
+            for participation in p_:
+                participations += participation
+            self.emax.append(participations)
+        self.emin = [0 for p_ in p] '''min number of events that participants would like to attend'''
+
+    '''
+        Sets the max number of events that participants would like to attend.
+        input:
+            _emax: the new emax vector
+    '''
+    def set_emax(self, emax):
+        assert len(emax) == len(self.emax)
+        consistent = 1
+        for i in range(len(emax)):
+            if emax[i] < self.emin[i]:
+                consistent = 0
+                break
+        if consistent:
+            self.emax = emax
+
+    '''
+        Sets the min number of events that participants would like to attend.
+        input:
+            _emin: the new emin vector
+    '''
+    def set_emin(self, emin):
+        assert len(emin) == len(self.emin)
+        consistent = 1
+        for i in range(len(emin)):
+            if emin[i] > self.emax[i]:
+                consistent = 0
+                break
+        if consistent:
+            self.emin = emin
+
+status = None
 
 '''
     Expires the elements that are no longer tabu-active.
@@ -16,7 +66,7 @@ import random
         _attemps: the number of iterations yet to perform
 '''
 def expire_features(tabu, attemps):
-    while tabu and tabu[0][0] - attemps == tenure:
+    while tabu and tabu[0][0] - attemps == status.tenure:
         del tabu[0]
 
 '''
@@ -63,7 +113,7 @@ def tabu_search(objective, neighborhood, is_legal, selection, s):
     s_star = s
     s_star_score = objective(s_star)
     tabu = []
-    while attemps:
+    while status.attemps:
         s_score = objective(s)
         if satisfiable(s) and s_score > s_star_score:
             s_star = s
@@ -74,35 +124,102 @@ def tabu_search(objective, neighborhood, is_legal, selection, s):
                 s_legal.append((s_candidate, s_candidate_moves))
         s, s_moves = selection(s_legal)
         tabu.append((attempts, s_moves))
-        expire_features(tabu, attemps)
-        attemps -= 1
+        expire_features(tabu, status.attemps)
+        status.attemps -= 1
     return s_star
 
 '''
-operations:
-    add - adding a participant to an event
-    move - moving a participant from an event to another one
-    remove - removing a participant from an event
-    replace - replacing a participant at an event by another one
-    swap - swapping two participants from two events
-input:
-    _s: a solution
-output:
-    a set of (neighbor, moves) pairs
+    Neighborhood generator.
+    Generates the neighbors of a given solution, using the following operations:
+        add - adding a participant to an event;
+        move - moving a participant from an event to another one;
+        remove - removing a participant from an event;
+        replace - replacing a participant of an event by another one;
+        swap - swapping two participants from two events.
+    input:
+        _s: a solution
+    output:
+        a set of (neighbor, moves) pairs
 '''
 def _neighborhood(s):
-    pass
+    assert len(s) == len(status.p)
+    assert len(s[0]) == len(status.p[0])
+    for i in range(len(status.p)):
+        indices = [] '''storing indices for checking consistency w.r.t. status.d matrix'''
+        participations = 0 '''counting participations for checking consistency w.r.t. status.emax vector'''
+        for j in range(len(s[i])):
+            if s[i][j] == 1:
+                indices.append(j)
+                participations += 1
+                '''REMOVE'''
+                s_ = [[x for x in y] for y in s]
+                s_[i][j] = 0
+                print("REMOVE participant {} from event {}".format(i, j))
+                yield (s_, [i])
+        for j in range(len(status.p[i])):
+            if status.p[i][j] == 1 and s[i][j] == 0:
+                '''MOVE'''
+                for k in range(len(s[i])):
+                    if j != k and s[i][k] == 1:
+                        s_ = [[x for x in y] for y in s]
+                        s_[i][j] = 1
+                        s_[i][k] = 0
+                        indices_ = indices[:]
+                        indices_.pop(indices_.index(k))
+                        '''checking consistency w.r.t. status.d matrix'''
+                        consistent = 1
+                        for l in indices_:
+                            if j != l and status.d[j][l] == 1:
+                                consistent = 0
+                                break
+                        if consistent:
+                            print("MOVE participant {} from event {} to event {}".format(i, k, j))
+                            yield (s_, [i])
+                if participations == status.emax[i]: '''checking consistency w.r.t. status.emax vector'''
+                    continue
+                '''checking consistency w.r.t. status.d matrix'''
+                consistent = 1
+                for k in indices:
+                    if j != k and status.d[j][k] == 1:
+                        consistent = 0
+                        break
+                if consistent:
+                    '''REPLACE'''
+                    for k in range(len(s)):
+                        if s[k][j] == 1:
+                            s_ = [[x for x in y] for y in s]
+                            s_[k][j] = 0
+                            s_[i][j] = 1
+                            print("REPLACE participant {} of event {} by participant {} ".format(k, j, i))
+                            yield (s_, [i, k])
+                '''checking consistency w.r.t. status.c vector'''
+                if status.c[j] > 0: '''capacity of event j is not infinite'''
+                    participations = 0
+                    for k in range(len(s)):
+                        participations += s[k][j]
+                    if participations == status.c[j]:
+                        continue
+                if consistent:
+                    '''ADD'''
+                    s_ = [[x for x in y] for y in s]
+                    s_[i][j] = 1
+                    print("ADD participant {} to event {}".format(i, j))
+                    yield (s_, [i])
 
 '''
-    Objective function.
-    Defines the score of a given solution.
+    Max objective function.
+    Defines the score of a given solution by summing all the participations.
     input:
         _s: a solution
     output:
         the score of _s
 '''
-def _objective(s):
-    pass
+def _objective_max(s):
+    score = 0
+    for i in range(len(s)):
+        for j in range(len(s[i])):
+            score += s[i][j]
+    return score
 
 '''
     Selection function of the Best-Neighbor heuristic.
