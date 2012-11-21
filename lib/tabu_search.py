@@ -2,6 +2,8 @@
 
 import random
 
+status = None
+
 class Status:
 
     '''
@@ -9,22 +11,24 @@ class Status:
             _p: the preferences matrix
             _c: the capacities vector
             _d: the exclusion matrix
-            _attemps: the number of iterations to perform
+            _attempts: the number of iterations to perform
             _tenure: the number of iterations during which elements are tabu-active
     '''
-    def __init__(self, p, c, d, attemps = 20, tenure = 2):
+    def __init__(self, p, c, d, attempts = 20, tenure = 2):
         self.p = p
         self.c = c
         self.d = d
-        self.attemps = attemps
+        self.attempts = attempts
         self.tenure = tenure
-        self.emax = [] '''max number of events that participants would like to attend'''
+        '''max number of events that participants would like to attend'''
+        self.emax = []
         for p_ in p:
             participations = 0
             for participation in p_:
                 participations += participation
             self.emax.append(participations)
-        self.emin = [0 for p_ in p] '''min number of events that participants would like to attend'''
+        '''min number of events that participants would like to attend'''
+        self.emin = [0 for p_ in p]
 
     '''
         Sets the max number of events that participants would like to attend.
@@ -56,7 +60,12 @@ class Status:
         if consistent:
             self.emin = emin
 
-status = None
+    '''
+        Sets the global status reference to this instance.
+    '''
+    def set_status(self):
+        global status
+        status = self
 
 '''
     Expires the elements that are no longer tabu-active.
@@ -99,36 +108,6 @@ def _is_legal_not_tabu_aspiration(s_neighbor, tabu):
     return objective(s_candidate) > objective(s_star) or _is_legal_not_tabu(s_candidate_moves, tabu)
 
 '''
-    Performs a tabu search.
-    input:
-        _objective: the objective function to maximize
-        _neighborhood: the neighborhood generator function
-        _is_legal: the legal moves filter function
-        _selection: the selection function
-        _s: the initial solution
-    output:
-        the best solution found after _attemps iterations
-'''
-def tabu_search(objective, neighborhood, is_legal, selection, s):
-    s_star = s
-    s_star_score = objective(s_star)
-    tabu = []
-    while status.attemps:
-        s_score = objective(s)
-        if satisfiable(s) and s_score > s_star_score:
-            s_star = s
-            s_star_score = s_score
-        s_legal = []
-        for s_candidate, s_candidate_moves in neighborhood(s):
-            if is_legal(s_moves, tabu):
-                s_legal.append((s_candidate, s_candidate_moves))
-        s, s_moves = selection(s_legal)
-        tabu.append((attempts, s_moves))
-        expire_features(tabu, status.attemps)
-        status.attemps -= 1
-    return s_star
-
-'''
     Neighborhood generator.
     Generates the neighbors of a given solution, using the following operations:
         add - adding a participant to an event;
@@ -145,8 +124,10 @@ def _neighborhood(s):
     assert len(s) == len(status.p)
     assert len(s[0]) == len(status.p[0])
     for i in range(len(status.p)):
-        indices = [] '''storing indices for checking consistency w.r.t. status.d matrix'''
-        participations = 0 '''counting participations for checking consistency w.r.t. status.emax vector'''
+        '''storing indices for checking consistency w.r.t. status.d matrix'''
+        indices = []
+        '''counting participations for checking consistency w.r.t. status.emax vector'''
+        participations = 0
         for j in range(len(s[i])):
             if s[i][j] == 1:
                 indices.append(j)
@@ -175,7 +156,8 @@ def _neighborhood(s):
                         if consistent:
                             print("MOVE participant {} from event {} to event {}".format(i, k, j))
                             yield (s_, [i])
-                if participations == status.emax[i]: '''checking consistency w.r.t. status.emax vector'''
+                '''checking consistency w.r.t. status.emax vector'''
+                if participations == status.emax[i]:
                     continue
                 '''checking consistency w.r.t. status.d matrix'''
                 consistent = 1
@@ -193,7 +175,8 @@ def _neighborhood(s):
                             print("REPLACE participant {} of event {} by participant {} ".format(k, j, i))
                             yield (s_, [i, k])
                 '''checking consistency w.r.t. status.c vector'''
-                if status.c[j] > 0: '''capacity of event j is not infinite'''
+                '''capacity of event j is not infinite'''
+                if status.c[j] > 0:
                     participations = 0
                     for k in range(len(s)):
                         participations += s[k][j]
@@ -205,6 +188,9 @@ def _neighborhood(s):
                     s_[i][j] = 1
                     print("ADD participant {} to event {}".format(i, j))
                     yield (s_, [i])
+
+def _objective_compound(s):
+    return _objective_max(s) + _objective_emin(s)
 
 '''
     Max objective function.
@@ -222,6 +208,24 @@ def _objective_max(s):
     return score
 
 '''
+    Min events participation objective function.
+    Defines the score of a given solution by the consistency w.r.t. the status.emin vector (soft constraint)
+    input:
+        _s: a solution
+    output:
+        the score of _s
+'''
+def _objective_emin(s):
+    total = 0
+    for i in range(len(s)):
+        score = 0
+        for j in range(len(s[i])):
+            score += s[i][j]
+        score_ = score / status.emin[i] if status.emin[i] > 0 else 1
+        total += score_ if score_ <= 1 else 1
+    return total
+
+'''
     Selection function of the Best-Neighbor heuristic.
     Chooses the neighbor with the best evaluation.
     input:
@@ -231,12 +235,44 @@ def _objective_max(s):
 '''
 def _selection_best(s_legal):
     s_star = [s_legal[0]]
-    s_star_score = objective(s_legal[0][0])
+    s_star_score = status.objective(s_legal[0][0])
     for s in s_legal:
-        score = objective(s[0])
+        score = status.objective(s[0])
         if score == s_star_score:
             s_star.append(s)
         elif score > s_star_score:
             s_star = [s]
             s_star_score = score
     return s_star[random.randint(0, len(s_star) - 1)]
+
+'''
+    Performs a tabu search.
+    input:
+        _s: the initial solution
+        _objective: the objective function to maximize
+        _neighborhood: the neighborhood generator function
+        _is_legal: the legal moves filter function
+        _selection: the selection function
+    output:
+        the best solution found after _attemps iterations
+'''
+def tabu_search(s, objective=_objective_compound, neighborhood=_neighborhood, is_legal=_is_legal_not_tabu, selection=_selection_best):
+    status.objective = objective
+    s_star = s
+    s_star_score = objective(s_star)
+    tabu = []
+    while status.attempts:
+        s_score = objective(s)
+        if s_score > s_star_score:
+            s_star = s
+            s_star_score = s_score
+        s_legal = []
+        for s_candidate, s_candidate_moves in neighborhood(s):
+            if is_legal(s_candidate_moves, tabu):
+                s_legal.append((s_candidate, s_candidate_moves))
+        s, s_moves = selection(s_legal)
+        tabu.append((status.attempts, s_moves))
+        expire_features(tabu, status.attempts)
+        status.attempts -= 1
+    return s_star
+
