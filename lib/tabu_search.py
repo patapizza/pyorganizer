@@ -29,6 +29,18 @@ class Status:
             self.emax.append(participations)
         '''min number of events that participants would like to attend'''
         self.emin = [0 for p_ in p]
+        '''close friends' adjacency matrix'''
+        self.cf = [[0 for x in p] for y in p]
+
+    '''
+        Sets the close friends' adjacency matrix.
+        input:
+            _cf: the new matrix
+    '''
+    def set_cf(self, cf):
+        assert len(cf) == len(self.cf)
+        assert len(cf[0]) == len(self.cf[0])
+        self.cf = cf
 
     '''
         Sets the max number of events that participants would like to attend.
@@ -199,13 +211,13 @@ def _neighborhood(s):
                                     s_[i][k] = 0
                                     s_[ii][k] = 1
                                     s_[ii][j] = 0
-                                    consistent = 1
+                                    d_consistent = 1
                                     '''checking that event _jj is not exclusive with any other attending event'''
                                     for jj in range(len(s_[ii])):
                                         if jj != k and s_[ii][jj] == 1 and status.d[jj][k] == 1:
-                                            consistent = 0
+                                            d_consistent = 0
                                             break
-                                    if consistent:
+                                    if d_consistent:
                                         print("SWAP participant {} of event {} with participant {} of event {}".format(i, j, ii, k))
                                         yield (s_, [i, ii])
                 '''checking that participant _i hasn't reached his max attending events' boundary yet'''
@@ -230,8 +242,38 @@ def _neighborhood(s):
                     print("ADD participant {} to event {}".format(i, j))
                     yield (s_, [i])
 
+'''
+    Compound objective function.
+    input:
+        _s: a solution
+    output:
+        the score of _s
+'''
 def _objective_compound(s):
-    return _objective_max(s) + _objective_emin(s)
+    return _objective_max(s) + _objective_emin(s) + _objective_friends(s)
+
+'''
+    Max close friends objective function.
+    Defines the score of a given solution by summing the "friendship relations" between participants.
+    input:
+        _s: a solution
+    output:
+        the score of _s
+'''
+def _objective_friends(s):
+    score = 0
+    for j in range(len(s[0])):
+        participants = []
+        for i in range(len(s)):
+            if s[i][j] == 1:
+                participants.append(i)
+        for p in participants:
+            for p_ in participants:
+                if p != p_:
+                    score += status.cf[p][p_]
+                    score += status.cf[p_][p]
+    return score
+
 
 '''
     Max objective function.
