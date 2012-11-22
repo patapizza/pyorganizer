@@ -79,6 +79,26 @@ def expire_features(tabu, attemps):
         del tabu[0]
 
 '''
+    Checks consistency against status.c vector.
+    input:
+        _i: an event
+        _s: a solution
+    output:
+        1 if event _i isn't full yet in _s
+        0 otherwise
+'''
+def is_c_consistent(i, s):
+    '''capacity of event _i is infinite'''
+    if status.c[i] == 0:
+        return 1
+    participations = 0
+    for j in range(len(s)):
+        participations += s[j][i]
+        if participations == status.c[i]:
+            return 0
+    return 1
+    
+'''
     Checks consistency w.r.t. status.d matrix.
     input:
         _i: index of an event
@@ -160,12 +180,8 @@ def _neighborhood(s):
                     '''checking consistency w.r.t. status.c vector'''
                     if not c_consistency_checked:
                         c_consistency_checked = 1
-                        if status.c[j] > 0:
-                            participations_ = 0
-                            for l in range(len(s)):
-                                participations_ += s[l][j]
-                            if participations_ == status.c[j]:
-                                break
+                        if not is_c_consistent(j, s):
+                            break
                     if j != k and s[i][k] == 1:
                         s_ = [[x for x in y] for y in s]
                         s_[i][j] = 1
@@ -191,13 +207,8 @@ def _neighborhood(s):
                             print("REPLACE participant {} of event {} by participant {} ".format(k, j, i))
                             yield (s_, [i, k])
                 '''checking consistency w.r.t. status.c vector'''
-                '''capacity of event j is not infinite'''
-                if status.c[j] > 0:
-                    participations_ = 0
-                    for k in range(len(s)):
-                        participations_ += s[k][j]
-                    if participations_ == status.c[j]:
-                        continue
+                if not is_c_consistent(j, s):
+                    continue
                 '''checking consistency w.r.t. status.d matrix'''
                 if consistent:
                     '''ADD'''
