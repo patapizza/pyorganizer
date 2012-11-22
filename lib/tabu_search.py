@@ -263,7 +263,7 @@ def _objective_emin(s):
         for j in range(len(s[i])):
             score += s[i][j]
         score_ = score / status.emin[i] if status.emin[i] > 0 else 1
-        total += score_ if score_ <= 1 else 1
+        total += min(1, score_)
     return total
 
 '''
