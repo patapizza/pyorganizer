@@ -159,9 +159,7 @@ def _neighborhood(s):
     assert len(s) == len(status.p)
     assert len(s[0]) == len(status.p[0])
     for i in range(len(status.p)):
-        '''storing indices for checking consistency w.r.t. status.d matrix'''
         indices = []
-        '''counting participations for checking consistency w.r.t. status.emax vector'''
         participations = 0
         for j in range(len(s[i])):
             if s[i][j] == 1:
@@ -174,30 +172,47 @@ def _neighborhood(s):
                 yield (s_, [i])
         for j in range(len(status.p[i])):
             if status.p[i][j] == 1 and s[i][j] == 0:
-                '''MOVE'''
-                c_consistency_checked = 0
-                for k in range(len(s[i])):
-                    '''checking consistency w.r.t. status.c vector'''
-                    if not c_consistency_checked:
-                        c_consistency_checked = 1
-                        if not is_c_consistent(j, s):
-                            break
-                    if j != k and s[i][k] == 1:
-                        s_ = [[x for x in y] for y in s]
-                        s_[i][j] = 1
-                        s_[i][k] = 0
-                        indices_ = indices[:]
-                        indices_.pop(indices_.index(k))
-                        '''checking consistency w.r.t. status.d matrix'''
-                        if is_d_consistent(j, indices_):
-                            print("MOVE participant {} from event {} to event {}".format(i, k, j))
-                            yield (s_, [i])
-                '''checking consistency w.r.t. status.emax vector'''
+                if participations > 0:
+                    c_consistency_checked = 0
+                    c_consistent = 0
+                    for k in range(len(s[i])):
+                        if k != j and s[i][k] == 1:
+                            indices_ = indices[:]
+                            indices_.pop(indices_.index(k))
+                            if not is_d_consistent(j, indices_):
+                                continue
+                            if not c_consistency_checked:
+                                c_consistency_checked = 1
+                                c_consistent = is_c_consistent(j, s)
+                            if c_consistent:
+                                '''MOVE'''
+                                s_ = [[x for x in y] for y in s]
+                                s_[i][j] = 1
+                                s_[i][k] = 0
+                                print("MOVE participant {} from event {} to event {}".format(i, k, j))
+                                yield (s_, [i])
+                            '''SWAP'''
+                            for ii in range(len(status.p)):
+                                if ii != i and status.p[ii][k] == 1 and s[ii][k] == 0 and s[ii][j] == 1:
+                                    s_ = [[x for x in y] for y in s]
+                                    s_[i][j] = 1
+                                    s_[i][k] = 0
+                                    s_[ii][k] = 1
+                                    s_[ii][j] = 0
+                                    consistent = 1
+                                    '''checking that event _jj is not exclusive with any other attending event'''
+                                    for jj in range(len(s_[ii])):
+                                        if jj != k and s_[ii][jj] == 1 and status.d[jj][k] == 1:
+                                            consistent = 0
+                                            break
+                                    if consistent:
+                                        print("SWAP participant {} of event {} with participant {} of event {}".format(i, j, ii, k))
+                                        yield (s_, [i, ii])
+                '''checking that participant _i hasn't reached his max attending events' boundary yet'''
                 if participations == status.emax[i]:
                     continue
-                '''checking consistency w.r.t. status.d matrix'''
-                consistent = is_d_consistent(j, indices)
-                if consistent:
+                d_consistent = is_d_consistent(j, indices)
+                if d_consistent:
                     '''REPLACE'''
                     for k in range(len(s)):
                         if s[k][j] == 1:
@@ -206,11 +221,9 @@ def _neighborhood(s):
                             s_[i][j] = 1
                             print("REPLACE participant {} of event {} by participant {} ".format(k, j, i))
                             yield (s_, [i, k])
-                '''checking consistency w.r.t. status.c vector'''
                 if not is_c_consistent(j, s):
                     continue
-                '''checking consistency w.r.t. status.d matrix'''
-                if consistent:
+                if d_consistent:
                     '''ADD'''
                     s_ = [[x for x in y] for y in s]
                     s_[i][j] = 1
