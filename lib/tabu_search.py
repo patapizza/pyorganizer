@@ -209,7 +209,7 @@ def _objective_max(s):
 
 '''
     Min events participation objective function.
-    Defines the score of a given solution by the consistency w.r.t. the status.emin vector (soft constraint)
+    Defines the score of a given solution by the consistency w.r.t. the status.emin vector (soft constraint).
     input:
         _s: a solution
     output:
@@ -262,15 +262,15 @@ def tabu_search(s, objective=_objective_compound, neighborhood=_neighborhood, is
     s_star_score = objective(s_star)
     tabu = []
     while status.attempts:
-        s_score = objective(s)
-        if s_score > s_star_score:
-            s_star = s
-            s_star_score = s_score
         s_legal = []
         for s_candidate, s_candidate_moves in neighborhood(s):
             if is_legal(s_candidate_moves, tabu):
                 s_legal.append((s_candidate, s_candidate_moves))
         s, s_moves = selection(s_legal)
+        s_score = objective(s)
+        if s_score > s_star_score:
+            s_star = s
+            s_star_score = s_score
         tabu.append((status.attempts, s_moves))
         expire_features(tabu, status.attempts)
         status.attempts -= 1
