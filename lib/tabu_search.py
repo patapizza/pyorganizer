@@ -79,6 +79,21 @@ def expire_features(tabu, attemps):
         del tabu[0]
 
 '''
+    Checks consistency w.r.t. status.d matrix.
+    input:
+        _i: index of an event
+        _indices: vector of attending events
+    output:
+        1 if event _i is not exclusive with any event of _indices
+        0 otherwise
+'''
+def is_d_consistent(i, indices):
+    for j in indices:
+        if i != j and status.d[i][j] == 1:
+            return 0
+    return 1
+
+'''
     Restricts the neighborhood by forbidding candidates having tabu-active elements.
     input:
         _s_candidate_moves: a list of moves
@@ -148,23 +163,14 @@ def _neighborhood(s):
                         indices_ = indices[:]
                         indices_.pop(indices_.index(k))
                         '''checking consistency w.r.t. status.d matrix'''
-                        consistent = 1
-                        for l in indices_:
-                            if j != l and status.d[j][l] == 1:
-                                consistent = 0
-                                break
-                        if consistent:
+                        if is_d_consistent(j, indices_):
                             print("MOVE participant {} from event {} to event {}".format(i, k, j))
                             yield (s_, [i])
                 '''checking consistency w.r.t. status.emax vector'''
                 if participations == status.emax[i]:
                     continue
                 '''checking consistency w.r.t. status.d matrix'''
-                consistent = 1
-                for k in indices:
-                    if j != k and status.d[j][k] == 1:
-                        consistent = 0
-                        break
+                consistent = is_d_consistent(j, indices)
                 if consistent:
                     '''REPLACE'''
                     for k in range(len(s)):
@@ -182,6 +188,7 @@ def _neighborhood(s):
                         participations += s[k][j]
                     if participations == status.c[j]:
                         continue
+                '''checking consistency w.r.t. status.d matrix'''
                 if consistent:
                     '''ADD'''
                     s_ = [[x for x in y] for y in s]
