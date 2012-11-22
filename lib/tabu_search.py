@@ -155,7 +155,17 @@ def _neighborhood(s):
         for j in range(len(status.p[i])):
             if status.p[i][j] == 1 and s[i][j] == 0:
                 '''MOVE'''
+                c_consistency_checked = 0
                 for k in range(len(s[i])):
+                    '''checking consistency w.r.t. status.c vector'''
+                    if not c_consistency_checked:
+                        c_consistency_checked = 1
+                        if status.c[j] > 0:
+                            participations_ = 0
+                            for l in range(len(s)):
+                                participations_ += s[l][j]
+                            if participations_ == status.c[j]:
+                                break
                     if j != k and s[i][k] == 1:
                         s_ = [[x for x in y] for y in s]
                         s_[i][j] = 1
@@ -183,10 +193,10 @@ def _neighborhood(s):
                 '''checking consistency w.r.t. status.c vector'''
                 '''capacity of event j is not infinite'''
                 if status.c[j] > 0:
-                    participations = 0
+                    participations_ = 0
                     for k in range(len(s)):
-                        participations += s[k][j]
-                    if participations == status.c[j]:
+                        participations_ += s[k][j]
+                    if participations_ == status.c[j]:
                         continue
                 '''checking consistency w.r.t. status.d matrix'''
                 if consistent:
