@@ -91,6 +91,44 @@ def expire_features(tabu, attemps):
         del tabu[0]
 
 '''
+    Builds an initial solution descending from preferences' matrix.
+    input:
+        _p: the preferences' matrix
+        _c: the max capacity vector
+        _d: the exclusion matrix
+    output:
+        a consistent solution
+'''
+def initial_solution_top_down(p, c, d):
+    s = [[x for x in y] for y in p]
+    '''making it consistent against max capacity vector'''
+    for j in range(len(s[0])):
+        capacity = 0
+        indices = []
+        for i in range(len(s)):
+            capacity += s[i][j]
+            indices.append(i)
+        while capacity > c[j]:
+            r = random.randint(0, len(indices) - 1)
+            if s[r][j] == 1:
+                capacity -= 1
+                s[r][j] = 0
+    '''making it consistent against exclusion matrix'''
+    d_indices = [[i for i in range(len(j)) if j[i] == 1] for j in d]
+    for i in range(len(s)):
+        indices = []
+        for j in range(len(s[i])):
+            if s[i][j] == 1:
+                indices.append(j)
+        for k in indices:
+            inter = set(indices) & set(d_indices[k])
+            while len(inter) > 1:
+                event = inter.pop()
+                s[i][event] = 0
+                indices.remove(event)
+    return s
+
+'''
     Checks consistency against status.c vector.
     input:
         _i: an event

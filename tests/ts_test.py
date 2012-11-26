@@ -15,5 +15,8 @@ class TSTest(unittest.TestCase):
     def test_tabu(self):
         print("Best solution found: {}".format(tabu_search([[0 for pp in p] for p in self.p])))
 
+    def test_initial_solution_td(self):
+        print("Initial solution: {}".format(initial_solution_top_down(self.p, self.c, self.d)))
+
 if __name__ == '__main__':
     unittest.main()
