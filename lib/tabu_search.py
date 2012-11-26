@@ -91,6 +91,37 @@ def expire_features(tabu, attemps):
         del tabu[0]
 
 '''
+    Builds an initial solution from 0's matrix toward preferences' matrix.
+    input:
+        _p: the preferences' matrix
+        _c: the max capacity vector
+        _d: the exclusion matrix
+    output:
+        a consistent solution
+'''
+def initial_solution_bottom_up(p, c, d):
+    s = [[0 for x in y] for y in p]
+    capacity = [0 for x in c]
+    d_indices = [[i for i in range(len(j)) if j[i] == 1] for j in d]
+    attempts = 5
+    while attempts > 0:
+        col, row = -1, -1
+        while 1:
+            row = random.randint(0, len(s) - 1)
+            col = random.randint(0, len(s[0]) - 1)
+            if p[row][col] == 1 and s[row][col] == 0:
+                break
+        attempts -= 1
+        if capacity[col] < c[col]:
+            indices = [j for j in range(len(s[row])) if s[row][j] == 1]
+            if len(set(indices) & set(d_indices[col])) == 0:
+                s[row][col] = 1
+                capacity[col] += 1
+                attempts = 5
+    return s
+
+
+'''
     Builds an initial solution descending from preferences' matrix.
     input:
         _p: the preferences' matrix
