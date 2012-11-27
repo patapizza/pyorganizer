@@ -21,12 +21,7 @@ class Status:
         self.attempts = attempts
         self.tenure = tenure
         '''max number of events that participants would like to attend'''
-        self.emax = []
-        for p_ in p:
-            participations = 0
-            for participation in p_:
-                participations += participation
-            self.emax.append(participations)
+        self.emax = [sum(ppp for ppp in pp) for pp in p]
         '''min number of events that participants would like to attend'''
         self.emin = [0] * len(p)
         '''close friends' adjacency matrix'''
@@ -147,10 +142,7 @@ def initial_solution_top_down(p, c, d):
     '''making it consistent against exclusion matrix'''
     d_indices = [[i for i in range(len(j)) if j[i] == 1] for j in d]
     for i in range(len(s)):
-        indices = []
-        for j in range(len(s[i])):
-            if s[i][j] == 1:
-                indices.append(j)
+        indices = [j for j in range(len(s[i])) if s[i][j] == 1]
         for k in indices:
             inter = set(indices) & set(d_indices[k])
             while len(inter) > 1:
@@ -332,10 +324,7 @@ def _objective_compound(s):
 def _objective_friends(s):
     score = 0
     for j in range(len(s[0])):
-        participants = []
-        for i in range(len(s)):
-            if s[i][j] == 1:
-                participants.append(i)
+        participants = [i for i in range(len(s)) if s[i][j] == 1]
         for p in participants:
             for p_ in participants:
                 if p != p_:
@@ -354,9 +343,8 @@ def _objective_friends(s):
 '''
 def _objective_max(s):
     score = 0
-    for i in range(len(s)):
-        for j in range(len(s[i])):
-            score += s[i][j]
+    for ss in s:
+        score += sum(sss for sss in ss)
     return score
 
 '''
@@ -370,10 +358,7 @@ def _objective_max(s):
 def _objective_emin(s):
     total = 0
     for i in range(len(s)):
-        score = 0
-        for j in range(len(s[i])):
-            score += s[i][j]
-        score_ = score / status.emin[i] if status.emin[i] > 0 else 1
+        score_ = sum(ss for ss in s[i]) / status.emin[i] if status.emin[i] > 0 else 1
         total += min(1, score_)
     return total
 
@@ -414,10 +399,7 @@ def tabu_search(s, objective=_objective_compound, neighborhood=_neighborhood, is
     status.s_star_score = objective(status.s_star)
     tabu = []
     while status.attempts:
-        s_legal = []
-        for s_candidate, s_candidate_moves in neighborhood(s):
-            if is_legal(s_candidate_moves, tabu):
-                s_legal.append((s_candidate, s_candidate_moves))
+        s_legal = [(s_candidate, s_candidate_moves) for s_candidate, s_candidate_moves in neighborhood(s) if is_legal(s_candidate_moves, tabu)]
         s, s_moves = selection(s_legal)
         s_score = objective(s)
         if s_score > status.s_star_score:
