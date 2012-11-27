@@ -131,7 +131,7 @@ def initial_solution_bottom_up(p, c, d):
         a consistent solution
 '''
 def initial_solution_top_down(p, c, d):
-    s = list(map(list, p))
+    s = [ss[:] for ss in p]
     '''making it consistent against max capacity vector'''
     for j in range(len(s[0])):
         capacity = 0
@@ -247,7 +247,7 @@ def _neighborhood(s):
                 indices.append(j)
                 participations += 1
                 '''REMOVE'''
-                s_ = list(map(list, s))
+                s_ = [ss[:] for ss in s]
                 s_[i][j] = 0
                 print("REMOVE participant {} from event {}".format(i, j))
                 yield (s_, [i])
@@ -267,7 +267,7 @@ def _neighborhood(s):
                                 c_consistent = is_c_consistent(j, s)
                             if c_consistent:
                                 '''MOVE'''
-                                s_ = list(map(list, s))
+                                s_ = [ss[:] for ss in s]
                                 s_[i][j] = 1
                                 s_[i][k] = 0
                                 print("MOVE participant {} from event {} to event {}".format(i, k, j))
@@ -275,7 +275,7 @@ def _neighborhood(s):
                             '''SWAP'''
                             for ii in range(len(status.p)):
                                 if ii != i and status.p[ii][k] == 1 and s[ii][k] == 0 and s[ii][j] == 1:
-                                    s_ = list(map(list, s))
+                                    s_ = [ss[:] for ss in s]
                                     s_[i][j] = 1
                                     s_[i][k] = 0
                                     s_[ii][k] = 1
@@ -297,7 +297,7 @@ def _neighborhood(s):
                     '''REPLACE'''
                     for k in range(len(s)):
                         if s[k][j] == 1:
-                            s_ = list(map(list, s))
+                            s_ = [ss[:] for ss in s]
                             s_[k][j] = 0
                             s_[i][j] = 1
                             print("REPLACE participant {} of event {} by participant {} ".format(k, j, i))
@@ -306,7 +306,7 @@ def _neighborhood(s):
                     continue
                 if d_consistent:
                     '''ADD'''
-                    s_ = list(map(list, s))
+                    s_ = [ss[:] for ss in s]
                     s_[i][j] = 1
                     print("ADD participant {} to event {}".format(i, j))
                     yield (s_, [i])
@@ -406,7 +406,7 @@ def _selection_best(s_legal):
         _is_legal: the legal moves filter function
         _selection: the selection function
     output:
-        the best solution found after _attemps iterations
+        the best solution found after _attemps iterations and its score as a pair
 '''
 def tabu_search(s, objective=_objective_compound, neighborhood=_neighborhood, is_legal=_is_legal_not_tabu, selection=_selection_best):
     status.objective = objective
@@ -427,5 +427,5 @@ def tabu_search(s, objective=_objective_compound, neighborhood=_neighborhood, is
             tabu.append((status.attempts, s_move))
         expire_features(tabu, status.attempts)
         status.attempts -= 1
-    return status.s_star
+    return (status.s_star, status.s_star_score)
 
