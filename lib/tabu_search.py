@@ -2,6 +2,7 @@
 
 import random
 
+verbose = 0
 status = None
 
 class Status:
@@ -95,11 +96,13 @@ def expire_features(tabu, attemps):
         a consistent solution
 '''
 def initial_solution_bottom_up(p, c, d):
-    s = [[0] * len(p) for y in p]
+    s = [[0] * len(p[0]) for pp in p]
     capacity = [0] * len(c)
     d_indices = [[i for i in range(len(j)) if j[i] == 1] for j in d]
     attempts = 5
+    #full = 0
     while attempts > 0:
+        full = 1
         col, row = -1, -1
         while 1:
             row = random.randint(0, len(s) - 1)
@@ -113,6 +116,41 @@ def initial_solution_bottom_up(p, c, d):
                 s[row][col] = 1
                 capacity[col] += 1
                 attempts = 5
+        '''TODO: check if it's full instead of attempts'''
+        '''for i in range(len(s[0])):
+            if capacity[i] < c[i]:
+                for j in range(len(s)):
+                    if p[j][i] == 1 and s[j][i] == 0:
+                        full = 0
+                        break
+                if not full:
+                    break
+        if full:
+            break
+        full = 1
+        for i in range(len(s)):
+            indices = []
+            indices_ = []
+            for j in range(len(s[i])):
+                if s[i][j] == 1:
+                    indices.append(j)
+                elif p[i][j] == 1:
+                    indices_.append(j)
+            if not indices_:
+                continue
+            for index_ in indices_:
+                row = set(d_indices[index_])
+                print("i: {}, row: {}".format(i, row))
+                for index in indices:
+                    if len(row & set(d_indices[index])) == 0:
+                        print("not full {}".format(index))
+                        full = 0
+                        break
+                if not full:
+                    break
+            if not full:
+                break
+    print(s)'''
     return s
 
 
@@ -134,6 +172,7 @@ def initial_solution_top_down(p, c, d):
         for i in range(len(s)):
             capacity += s[i][j]
             indices.append(i)
+        '''TODO: shuffle indices instead of undefinitely looping!'''
         while capacity > c[j]:
             r = random.randint(0, len(indices) - 1)
             if s[r][j] == 1:
@@ -241,7 +280,8 @@ def _neighborhood(s):
                 '''REMOVE'''
                 s_ = [ss[:] for ss in s]
                 s_[i][j] = 0
-                print("REMOVE participant {} from event {}".format(i, j))
+                if verbose:
+                    print("REMOVE participant {} from event {}".format(i, j))
                 yield (s_, [i])
         for j in range(len(status.p[i])):
             if status.p[i][j] == 1 and s[i][j] == 0:
@@ -262,7 +302,8 @@ def _neighborhood(s):
                                 s_ = [ss[:] for ss in s]
                                 s_[i][j] = 1
                                 s_[i][k] = 0
-                                print("MOVE participant {} from event {} to event {}".format(i, k, j))
+                                if verbose:
+                                    print("MOVE participant {} from event {} to event {}".format(i, k, j))
                                 yield (s_, [i])
                             '''SWAP'''
                             for ii in range(len(status.p)):
@@ -279,7 +320,8 @@ def _neighborhood(s):
                                             d_consistent = 0
                                             break
                                     if d_consistent:
-                                        print("SWAP participant {} of event {} with participant {} of event {}".format(i, j, ii, k))
+                                        if verbose:
+                                            print("SWAP participant {} of event {} with participant {} of event {}".format(i, j, ii, k))
                                         yield (s_, [i, ii])
                 '''checking that participant _i hasn't reached his max attending events' boundary yet'''
                 if participations == status.emax[i]:
@@ -292,7 +334,8 @@ def _neighborhood(s):
                             s_ = [ss[:] for ss in s]
                             s_[k][j] = 0
                             s_[i][j] = 1
-                            print("REPLACE participant {} of event {} by participant {} ".format(k, j, i))
+                            if verbose:
+                                print("REPLACE participant {} of event {} by participant {} ".format(k, j, i))
                             yield (s_, [i, k])
                 if not is_c_consistent(j, s):
                     continue
@@ -300,7 +343,8 @@ def _neighborhood(s):
                     '''ADD'''
                     s_ = [ss[:] for ss in s]
                     s_[i][j] = 1
-                    print("ADD participant {} to event {}".format(i, j))
+                    if verbose:
+                        print("ADD participant {} to event {}".format(i, j))
                     yield (s_, [i])
 
 '''
