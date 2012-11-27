@@ -83,7 +83,7 @@ class Status:
     Expires the elements that are no longer tabu-active.
     ! Acts in-place.
     input:
-        _tabu: a list of (age, moves list) pairs
+        _tabu: a list of (age, move) pairs
         _attemps: the number of iterations yet to perform
 '''
 def expire_features(tabu, attemps):
@@ -198,7 +198,7 @@ def is_d_consistent(i, indices):
     Restricts the neighborhood by forbidding candidates having tabu-active elements.
     input:
         _s_candidate_moves: a list of moves
-        _tabu: a list of (age, moves list) pairs
+        _tabu: a list of (age, move) pairs
     output:
         0 if a move of _s_candidate_moves is tabu
         1 otherwise
@@ -423,7 +423,8 @@ def tabu_search(s, objective=_objective_compound, neighborhood=_neighborhood, is
         if s_score > s_star_score:
             s_star = s
             s_star_score = s_score
-        tabu.append((status.attempts, s_moves))
+        for s_move in s_moves:
+            tabu.append((status.attempts, s_move))
         expire_features(tabu, status.attempts)
         status.attempts -= 1
     return s_star
