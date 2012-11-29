@@ -26,12 +26,11 @@ class TSTest(unittest.TestCase):
                     else:
                         row.append(1)
             d.append(row)
-        print(d)
         status = Status(p, c, d, 10)
         status.set_status()
         print("Huge solution found: {}".format(tabu_search(initial_solution_top_down(p, c, d))))
-        #print("Huge solution found: {}".format(tabu_search([[0] * 100 for s in p])))
 
+    @unittest.skip("blah")
     def test_generator(self):
         n = 50 # number of participants
         m = 20 # number of events
@@ -50,13 +49,11 @@ class TSTest(unittest.TestCase):
                 start = time.time()
                 print("Solution found from 0-matrix initial solution: {}".format(tabu_search([[0] * m for i in range(n)])[1]))
                 print("Elapsed: {}".format(time.time() - start))
-                status = Status(gen.p, gen.c, gen.d, attempt, tenure)
-                status.set_status()
+                status.attempts = attempt
                 start = time.time()
                 print("Solution found from top-down initial solution: {}".format(tabu_search(td)[1]))
                 print("Elapsed: {}".format(time.time() - start))
-                status = Status(gen.p, gen.c, gen.d, attempt, tenure)
-                status.set_status()
+                status.attempts = attempt
                 start = time.time()
                 print("Solution found from bottom-up initial solution: {}".format(tabu_search(bu)[1]))
                 print("Elapsed: {}".format(time.time() - start))
@@ -69,6 +66,27 @@ class TSTest(unittest.TestCase):
         status = Status(p, c, d)
         status.set_status()
         print(tabu_search(initial_solution_bottom_up(p, c, d)))
+    
+    def test_aspiration(self):
+        n = 50
+        m = 20
+        gen = Generator(n, m)
+        init = initial_solution_top_down(gen.p, gen.c, gen.d)
+        attempts = [3, 10, 20, 50]
+        tenures = [2, 4]
+        for attempt in attempts:
+            print("# attempts: {}".format(attempt))
+            for tenure in tenures:
+                print("Tenure value: {}".format(tenure))
+                status = Status(gen.p, gen.c, gen.d, attempt, tenure)
+                status.set_status()
+                start = time.time()
+                print("Solution found: {}".format(tabu_search(init)[1]))
+                print("Elapsed: {}".format(time.time() - start))
+                status.attempts = attempt
+                start = time.time()
+                print("Solution found with aspiration: {}".format(tabu_search(init, objective_compound, neighborhood_all, is_legal_not_tabu_aspiration)[1]))
+                print("Elapsed: {}".format(time.time() - start))
 
 if __name__ == '__main__':
     unittest.main()

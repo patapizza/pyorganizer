@@ -196,15 +196,15 @@ def is_d_consistent(i, indices):
 '''
     Restricts the neighborhood by forbidding candidates having tabu-active elements.
     input:
-        _s_candidate_moves: a list of moves
+        _s_neighbor: a (s_candidate, s_candidate_moves) pair
         _tabu: a list of (age, move) pairs
     output:
-        0 if a move of _s_candidate_moves is tabu
+        0 if a move of _s_neighbor[1] is tabu
         1 otherwise
 '''
-def _is_legal_not_tabu(s_candidate_moves, tabu):
+def is_legal_not_tabu(s_neighbor, tabu):
     tabu_ = [element[1] for element in tabu]
-    for s_candidate_move in s_candidate_moves:
+    for s_candidate_move in s_neighbor[1]:
         if s_candidate_move in tabu_:
             return 0
     return 1
@@ -218,9 +218,8 @@ def _is_legal_not_tabu(s_candidate_moves, tabu):
         0 if _s_candidate is not better than status.s_star and if a move of _s_candidate_moves is tabu
         1 otherwise
 '''
-def _is_legal_not_tabu_aspiration(s_neighbor, tabu):
-    s_candidate, s_candidate_moves = s_neighbor
-    return status.objective(s_candidate) > status.s_star_score or _is_legal_not_tabu(s_candidate_moves, tabu)
+def is_legal_not_tabu_aspiration(s_neighbor, tabu):
+    return status.objective(s_neighbor[0]) > status.s_star_score or is_legal_not_tabu(s_neighbor, tabu)
 
 '''
     Neighborhood generator.
@@ -235,7 +234,7 @@ def _is_legal_not_tabu_aspiration(s_neighbor, tabu):
     output:
         a set of (neighbor, moves) pairs
 '''
-def _neighborhood(s):
+def neighborhood_all(s):
     assert len(s) == len(status.p)
     assert len(s[0]) == len(status.p[0])
     for i in range(len(status.p)):
@@ -322,8 +321,8 @@ def _neighborhood(s):
     output:
         the score of _s
 '''
-def _objective_compound(s):
-    return _objective_max(s) + _objective_emin(s) + _objective_friends(s)
+def objective_compound(s):
+    return objective_max(s) + objective_emin(s) + objective_friends(s)
 
 '''
     Max close friends objective function.
@@ -333,7 +332,7 @@ def _objective_compound(s):
     output:
         the score of _s
 '''
-def _objective_friends(s):
+def objective_friends(s):
     score = 0
     for j in range(len(s[0])):
         participants = [i for i in range(len(s)) if s[i][j] == 1]
@@ -353,7 +352,7 @@ def _objective_friends(s):
     output:
         the score of _s
 '''
-def _objective_max(s):
+def objective_max(s):
     score = 0
     for ss in s:
         score += sum(sss for sss in ss)
@@ -367,7 +366,7 @@ def _objective_max(s):
     output:
         the score of _s
 '''
-def _objective_emin(s):
+def objective_emin(s):
     total = 0
     for i in range(len(s)):
         score_ = sum(ss for ss in s[i]) / status.emin[i] if status.emin[i] > 0 else 1
@@ -382,7 +381,7 @@ def _objective_emin(s):
     output:
         a pair among _s_legal for which the objective is maximum, uniformly randomly
 '''
-def _selection_best(s_legal):
+def selection_best(s_legal):
     s_star = [s_legal[0]]
     s_star_score = status.objective(s_legal[0][0])
     for s in s_legal:
@@ -405,13 +404,13 @@ def _selection_best(s_legal):
     output:
         the best solution found after _attemps iterations and its score as a pair
 '''
-def tabu_search(s, objective=_objective_compound, neighborhood=_neighborhood, is_legal=_is_legal_not_tabu, selection=_selection_best):
+def tabu_search(s, objective=objective_compound, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
     status.objective = objective
     status.s_star = s
     status.s_star_score = objective(status.s_star)
     tabu = []
     while status.attempts:
-        s_legal = [(s_candidate, s_candidate_moves) for s_candidate, s_candidate_moves in neighborhood(s) if is_legal(s_candidate_moves, tabu)]
+        s_legal = [s_neighbor for s_neighbor in neighborhood(s) if is_legal(s_neighbor, tabu)]
         s, s_moves = selection(s_legal)
         s_score = objective(s)
         if s_score > status.s_star_score:
