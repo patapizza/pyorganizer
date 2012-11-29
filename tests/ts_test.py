@@ -40,7 +40,6 @@ class TSTest(unittest.TestCase):
         td = initial_solution_top_down(gen.p, gen.c, gen.d)
         bu = initial_solution_bottom_up(gen.p, gen.c, gen.d)
         attempts = [3, 10, 20, 50, 100]
-        attempts = [100]
         tenures = [2, 4]
         for attempt in attempts:
             print("# attempts: {}".format(attempt))
