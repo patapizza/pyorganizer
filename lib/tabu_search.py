@@ -87,6 +87,18 @@ def expire_features(tabu, attemps):
         del tabu[0]
 
 '''
+    Extracts participants indices from a move structure.
+    input:
+        _s_move: a move in the form (op_name, indices tuple)
+    output:
+        a list of participants indices from _s_move
+'''
+def extract_tabu_elements(s_move):
+    if s_move[0] == 'add' or s_move[0] == 'remove' or s_move[0] == 'move':
+        return [s_move[1][0]]
+    return [s_move[1][0], s_move[1][1]]
+
+'''
     Builds an initial solution from 0's matrix toward preferences' matrix.
     input:
         _p: the preferences' matrix
@@ -196,7 +208,7 @@ def is_d_consistent(i, indices):
 '''
     Restricts the neighborhood by forbidding candidates having tabu-active elements.
     input:
-        _s_neighbor: a (s_candidate, s_candidate_moves) pair
+        _s_neighbor: a (s_candidate, s_candidate_move) pair
         _tabu: a list of (age, move) pairs
     output:
         0 if a move of _s_neighbor[1] is tabu
@@ -204,7 +216,7 @@ def is_d_consistent(i, indices):
 '''
 def is_legal_not_tabu(s_neighbor, tabu):
     tabu_ = [element[1] for element in tabu]
-    for s_candidate_move in s_neighbor[1]:
+    for s_candidate_move in extract_tabu_elements(s_neighbor[1]):
         if s_candidate_move in tabu_:
             return 0
     return 1
@@ -212,7 +224,7 @@ def is_legal_not_tabu(s_neighbor, tabu):
 '''
     Restricts the neighborhood but considers candidates better than the optimum solution found so far.
     input:
-        _s_neighbor: a (s_candidate, s_candidate_moves) pair
+        _s_neighbor: a (s_candidate, s_candidate_move) pair
         _tabu: a list of (age, moves list) pairs
     output:
         0 if _s_candidate is not better than status.s_star and if a move of _s_candidate_moves is tabu
@@ -232,7 +244,7 @@ def is_legal_not_tabu_aspiration(s_neighbor, tabu):
     input:
         _s: a solution
     output:
-        a set of (neighbor, moves) pairs
+        a set of (neighbor, move) pairs
 '''
 def neighborhood_all(s):
     assert len(s) == len(status.p)
@@ -249,7 +261,7 @@ def neighborhood_all(s):
                 s_[i][j] = 0
                 if verbose:
                     print("REMOVE participant {} from event {}".format(i, j))
-                yield (s_, [i])
+                yield (s_, ('remove', (i, j)))
         for j in range(len(status.p[i])):
             if status.p[i][j] == 1 and s[i][j] == 0:
                 if participations > 0:
@@ -271,7 +283,7 @@ def neighborhood_all(s):
                                 s_[i][k] = 0
                                 if verbose:
                                     print("MOVE participant {} from event {} to event {}".format(i, k, j))
-                                yield (s_, [i])
+                                yield (s_, ('move', (i, k, j)))
                             '''SWAP'''
                             for ii in range(len(status.p)):
                                 if ii != i and status.p[ii][k] == 1 and s[ii][k] == 0 and s[ii][j] == 1:
@@ -288,8 +300,8 @@ def neighborhood_all(s):
                                             break
                                     if d_consistent:
                                         if verbose:
-                                            print("SWAP participant {} of event {} with participant {} of event {}".format(i, j, ii, k))
-                                        yield (s_, [i, ii])
+                                            print("SWAP participant {} of event {} with participant {} of event {}".format(i, k, ii, j))
+                                        yield (s_, ('swap', (i, ii, k, j)))
                 '''checking that participant _i hasn't reached his max attending events' boundary yet'''
                 if participations == status.emax[i]:
                     continue
@@ -303,7 +315,7 @@ def neighborhood_all(s):
                             s_[i][j] = 1
                             if verbose:
                                 print("REPLACE participant {} of event {} by participant {} ".format(k, j, i))
-                            yield (s_, [i, k])
+                            yield (s_, ('replace', (k, i, j)))
                 if not is_c_consistent(j, s):
                     continue
                 if d_consistent:
@@ -312,7 +324,7 @@ def neighborhood_all(s):
                     s_[i][j] = 1
                     if verbose:
                         print("ADD participant {} to event {}".format(i, j))
-                    yield (s_, [i])
+                    yield (s_, ('add', (i, j)))
 
 '''
     Compound objective function.
@@ -322,7 +334,11 @@ def neighborhood_all(s):
         the score of _s
 '''
 def objective_compound(s):
+    '''TODO: compute the compound objective explicitely to increase performance'''
     return objective_max(s) + objective_emin(s) + objective_friends(s)
+
+def objective_compound_incr(s, score, move):
+    return objective_max_incr(s, score, move) + objective_emin_incr(s, score, move) + objective_friends_incr(s, score, move)
 
 '''
     Max close friends objective function.
@@ -333,16 +349,43 @@ def objective_compound(s):
         the score of _s
 '''
 def objective_friends(s):
-    score = 0
+    '''score = 0
     for j in range(len(s[0])):
         participants = [i for i in range(len(s)) if s[i][j] == 1]
         for p in participants:
             for p_ in participants:
                 if p != p_:
                     score += status.cf[p][p_]
-                    score += status.cf[p_][p]
+    return score'''
+    score = 0
+    for j in range(len(s[0])):
+        for i in range(len(s)):
+            for k in range(len(s)):
+                if i != k:
+                    score += ((status.cf[i][k]) * s[i][j] * s[k][j])
     return score
 
+def objective_friends_incr(s, score, move):
+    if move[0] == 'add':
+        return score + sum((status.cf[move[1][0]][k] + status.cf[k][move[1][0]]) * s[k][move[1][1]] for k in range(len(s)) if k != move[1][0])
+    if move[0] == 'remove':
+        return score - sum((status.cf[move[1][0]][k] + status.cf[k][move[1][0]]) * s[k][move[1][1]] for k in range(len(s)) if k != move[1][0])
+    if move[0] == 'move':
+        score_ = objective_friends_incr(s, score, ('remove', (move[1][0], move[1][1])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][1]] = 0
+        return objective_friends_incr(s_, score_, ('add', (move[1][0], move[1][2])))
+    if move[0] == 'replace':
+        score_ = objective_friends_incr(s, score, ('remove', (move[1][0], move[1][2])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        return objective_friends_incr(s_, score_, ('add', (move[1][1], move[1][2])))
+    if move[0] == 'swap':
+        score_ = objective_friends_incr(s, score, ('move', (move[1][0], move[1][2], move[1][3])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        s_[move[1][0]][move[1][3]] = 1
+        return objective_friends_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
 
 '''
     Max objective function.
@@ -356,6 +399,13 @@ def objective_max(s):
     score = 0
     for ss in s:
         score += sum(sss for sss in ss)
+    return score
+
+def objective_max_incr(s, score, move):
+    if move[0] == 'add':
+        return score + 1
+    if move[0] == 'remove':
+        return score - 1
     return score
 
 '''
@@ -373,19 +423,47 @@ def objective_emin(s):
         total += min(1, score_)
     return total
 
+def objective_emin_incr(s, score, move):
+    if move[0] == 'add':
+        if status.emin[move[1][0]] == 0:
+            return score
+        var = sum(k for k in s[move[1][0]]) / status.emin[move[1][0]]
+        return score + min(1, s[move[1][0]][move[1][1]] / status.emin[move[1][0]]) - min(1, var)
+    if move[0] == 'remove':
+        if status.emin[move[1][0]] == 0:
+            return score
+        var = sum(k for k in s[move[1][0]]) / status.emin[move[1][0]]
+        return score + min(1, var - s[move[1][0]][move[1][1]] / status.emin[move[1][0]]) - min(1, var)
+    if move[0] == 'move':
+        score_ = objective_emin_incr(s, score, ('remove', (move[1][0], move[1][1])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][1]] = 0
+        return objective_emin_incr(s_, score_, ('add', (move[1][0], move[1][2])))
+    if move[0] == 'replace':
+        score_ = objective_emin_incr(s, score, ('remove', (move[1][0], move[1][2])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        return objective_emin_incr(s_, score_, ('add', (move[1][1], move[1][2])))
+    if move[0] == 'swap':
+        score_ = objective_emin_incr(s, score, ('move', (move[1][0], move[1][2], move[1][3])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        s_[move[1][0]][move[1][3]] = 1
+        return objective_emin_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
+
 '''
     Selection function of the Best-Neighbor heuristic.
     Chooses the neighbor with the best evaluation.
     input:
-        _s_legal: a list of (solution, moves) pairs
+        _s_legal: a list of (solution, move) pairs
     output:
         a pair among _s_legal for which the objective is maximum, uniformly randomly
 '''
 def selection_best(s_legal):
     s_star = [s_legal[0]]
-    s_star_score = status.objective(s_legal[0][0])
+    s_star_score = status.objective(status.s_star, status.s_star_score, s_legal[0][1])
     for s in s_legal:
-        score = status.objective(s[0])
+        score = status.objective(status.s_star, status.s_star_score, s[1])
         if score == s_star_score:
             s_star.append(s)
         elif score > s_star_score:
@@ -404,20 +482,27 @@ def selection_best(s_legal):
     output:
         the best solution found after _attemps iterations and its score as a pair
 '''
-def tabu_search(s, objective=objective_compound, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
+def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
     status.objective = objective
     status.s_star = s
-    status.s_star_score = objective(status.s_star)
+    if objective == objective_friends_incr:
+        status.s_star_score = objective_friends(status.s_star)
+    elif objective == objective_emin_incr:
+        status.s_star_score = objective_emin(status.s_star)
+    elif objective == objective_max_incr:
+        status.s_star_score = objective_max(status.s_star)
+    elif objective == objective_compound_incr:
+        status.s_star_score = objective_compound(status.s_star)
     tabu = []
     while status.attempts:
-        s_legal = [s_neighbor for s_neighbor in neighborhood(s) if is_legal(s_neighbor, tabu)]
-        s, s_moves = selection(s_legal)
-        s_score = objective(s)
+        s_legal = [s_neighbor for s_neighbor in neighborhood(status.s_star) if is_legal(s_neighbor, tabu)]
+        s, s_move = selection(s_legal)
+        s_score = objective(status.s_star, status.s_star_score, s_move)
         if s_score > status.s_star_score:
             status.s_star = s
             status.s_star_score = s_score
-        for s_move in s_moves:
-            tabu.append((status.attempts, s_move))
+        for participant in extract_tabu_elements(s_move):
+            tabu.append((status.attempts, participant))
         expire_features(tabu, status.attempts)
         status.attempts -= 1
     return (status.s_star, status.s_star_score)
