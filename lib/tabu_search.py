@@ -96,13 +96,12 @@ def expire_features(tabu, attemps):
         a consistent solution
 '''
 def initial_solution_bottom_up(p, c, d):
+    '''TODO: check if it's full instead of limited number of attempts'''
     s = [[0] * len(p[0]) for pp in p]
     capacity = [0] * len(c)
     d_indices = [[i for i in range(len(j)) if j[i] == 1] for j in d]
     attempts = 5
-    #full = 0
     while attempts > 0:
-        full = 1
         col, row = -1, -1
         while 1:
             row = random.randint(0, len(s) - 1)
@@ -110,47 +109,12 @@ def initial_solution_bottom_up(p, c, d):
             if p[row][col] == 1 and s[row][col] == 0:
                 break
         attempts -= 1
-        if capacity[col] < c[col]:
+        if c[col] == 0 or capacity[col] < c[col]:
             indices = [j for j in range(len(s[row])) if s[row][j] == 1]
             if len(set(indices) & set(d_indices[col])) == 0:
                 s[row][col] = 1
                 capacity[col] += 1
                 attempts = 5
-        '''TODO: check if it's full instead of attempts'''
-        '''for i in range(len(s[0])):
-            if capacity[i] < c[i]:
-                for j in range(len(s)):
-                    if p[j][i] == 1 and s[j][i] == 0:
-                        full = 0
-                        break
-                if not full:
-                    break
-        if full:
-            break
-        full = 1
-        for i in range(len(s)):
-            indices = []
-            indices_ = []
-            for j in range(len(s[i])):
-                if s[i][j] == 1:
-                    indices.append(j)
-                elif p[i][j] == 1:
-                    indices_.append(j)
-            if not indices_:
-                continue
-            for index_ in indices_:
-                row = set(d_indices[index_])
-                print("i: {}, row: {}".format(i, row))
-                for index in indices:
-                    if len(row & set(d_indices[index])) == 0:
-                        print("not full {}".format(index))
-                        full = 0
-                        break
-                if not full:
-                    break
-            if not full:
-                break
-    print(s)'''
     return s
 
 
@@ -164,6 +128,10 @@ def initial_solution_bottom_up(p, c, d):
         a consistent solution
 '''
 def initial_solution_top_down(p, c, d):
+    '''TODO: implement new algorithm
+    1. store indices where p[i][j] = 1
+    2. remove where max capacity attained, randomly until consistent
+    3. make it d-consistent randomly for each line'''
     s = [ss[:] for ss in p]
     '''making it consistent against max capacity vector'''
     for j in range(len(s[0])):
