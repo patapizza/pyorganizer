@@ -231,7 +231,7 @@ def is_legal_not_tabu(s_neighbor, tabu):
         1 otherwise
 '''
 def is_legal_not_tabu_aspiration(s_neighbor, tabu):
-    return status.objective(s_neighbor[0]) > status.s_star_score or is_legal_not_tabu(s_neighbor, tabu)
+    return status.objective(status.s_star, status.s_star_score, s_neighbor[1]) > status.s_star_score or is_legal_not_tabu(s_neighbor, tabu)
 
 '''
     Neighborhood generator.
@@ -334,11 +334,78 @@ def neighborhood_all(s):
         the score of _s
 '''
 def objective_compound(s):
-    '''TODO: compute the compound objective explicitely to increase performance'''
+    '''TODO: compute the compound objective explicitly to increase performance'''
     return objective_max(s) + objective_emin(s) + objective_friends(s)
 
+'''
+    ! FIXME: Not right.
+'''
 def objective_compound_incr(s, score, move):
     return objective_max_incr(s, score, move) + objective_emin_incr(s, score, move) + objective_friends_incr(s, score, move)
+
+'''
+    Min events participation objective function.
+    Defines the score of a given solution by the consistency w.r.t. the status.emin vector (soft constraint).
+    input:
+        _s: a solution
+    output:
+        the score of _s
+'''
+def objective_emin(s):
+    total = 0
+    for i in range(len(s)):
+        score_ = sum(ss for ss in s[i]) / status.emin[i] if status.emin[i] > 0 else 1
+        total += min(1, score_)
+    return total
+
+'''
+    Min events participation objective function (incremental version).
+    Defines the score of a given solution by the consistency w.r.t. the status.emin vector (soft constraint).
+    input:
+        _s: a solution
+        _score: the score of _s
+        _move: a (operation_name, involved participants/events tuple) pair
+    output:
+        the score of _s after performing the move _move
+'''
+def objective_emin_incr(s, score, move):
+    if move[0] == 'add' or move[0] == 'remove':
+        '''
+            ('add', (participant i, event j))
+            ('remove', (participant i, event j))
+        '''
+        if status.emin[move[1][0]] == 0:
+            return score
+        var = sum(k for k in s[move[1][0]]) / status.emin[move[1][0]]
+        if move[0] == 'add':
+            return score + min(1, s[move[1][0]][move[1][1]] / status.emin[move[1][0]]) - min(1, var)
+        return score + min(1, var - s[move[1][0]][move[1][1]] / status.emin[move[1][0]]) - min(1, var)
+    s_ = [ss[:] for ss in s]
+    if move[0] == 'move':
+        '''
+            ('move', (participant i, event j1, event j2))
+            -> ('remove', (i, j1)) + ('add', (i, j2))
+        '''
+        score_ = objective_emin_incr(s, score, ('remove', (move[1][0], move[1][1])))
+        s_[move[1][0]][move[1][1]] = 0
+        return objective_emin_incr(s_, score_, ('add', (move[1][0], move[1][2])))
+    if move[0] == 'replace':
+        '''
+            ('replace', (participant i1, participant i2, event j))
+            -> ('remove', (i1, j)) + ('add', (i2, j))
+        '''
+        score_ = objective_emin_incr(s, score, ('remove', (move[1][0], move[1][2])))
+        s_[move[1][0]][move[1][2]] = 0
+        return objective_emin_incr(s_, score_, ('add', (move[1][1], move[1][2])))
+    if move[0] == 'swap':
+        '''
+            ('swap', (participant i1, participant i2, event j1, event j2))
+            -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
+        '''
+        score_ = objective_emin_incr(s, score, ('move', (move[1][0], move[1][2], move[1][3])))
+        s_[move[1][0]][move[1][2]] = 0
+        s_[move[1][0]][move[1][3]] = 1
+        return objective_emin_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
 
 '''
     Max close friends objective function.
@@ -349,14 +416,6 @@ def objective_compound_incr(s, score, move):
         the score of _s
 '''
 def objective_friends(s):
-    '''score = 0
-    for j in range(len(s[0])):
-        participants = [i for i in range(len(s)) if s[i][j] == 1]
-        for p in participants:
-            for p_ in participants:
-                if p != p_:
-                    score += status.cf[p][p_]
-    return score'''
     score = 0
     for j in range(len(s[0])):
         for i in range(len(s)):
@@ -365,22 +424,50 @@ def objective_friends(s):
                     score += ((status.cf[i][k]) * s[i][j] * s[k][j])
     return score
 
+'''
+    Max close friends objective function (incremental version).
+    Defines the score of a given solution by summing the "friendship relations" between participants.
+    input:
+        _s: a solution
+        _score: the score of _s
+        _move: a (operation_name, involved participants/events tuple) pair
+    output:
+        the score of _s after performing the move _move
+'''
 def objective_friends_incr(s, score, move):
     if move[0] == 'add':
+        '''
+            ('add', (participant i, event j))
+        '''
         return score + sum((status.cf[move[1][0]][k] + status.cf[k][move[1][0]]) * s[k][move[1][1]] for k in range(len(s)) if k != move[1][0])
     if move[0] == 'remove':
+        '''
+            ('remove', (participant i, event j))
+        '''
         return score - sum((status.cf[move[1][0]][k] + status.cf[k][move[1][0]]) * s[k][move[1][1]] for k in range(len(s)) if k != move[1][0])
     if move[0] == 'move':
+        '''
+            ('move', (participant i, event j1, event j2))
+            -> ('remove', (i, j1)) + ('add', (i, j2))
+        '''
         score_ = objective_friends_incr(s, score, ('remove', (move[1][0], move[1][1])))
         s_ = [ss[:] for ss in s]
         s_[move[1][0]][move[1][1]] = 0
         return objective_friends_incr(s_, score_, ('add', (move[1][0], move[1][2])))
     if move[0] == 'replace':
+        '''
+            ('replace', (participant i1, participant i2, event j))
+            -> ('remove', (i1, j)) + ('add', (i2, j))
+        '''
         score_ = objective_friends_incr(s, score, ('remove', (move[1][0], move[1][2])))
         s_ = [ss[:] for ss in s]
         s_[move[1][0]][move[1][2]] = 0
         return objective_friends_incr(s_, score_, ('add', (move[1][1], move[1][2])))
     if move[0] == 'swap':
+        '''
+            ('swap', (participant i1, participant i2, event j1, event j2))
+            -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
+        '''
         score_ = objective_friends_incr(s, score, ('move', (move[1][0], move[1][2], move[1][3])))
         s_ = [ss[:] for ss in s]
         s_[move[1][0]][move[1][2]] = 0
@@ -401,55 +488,22 @@ def objective_max(s):
         score += sum(sss for sss in ss)
     return score
 
+'''
+    Max objective function (incremental version).
+    Defines the score of a given solution by summing all the participations.
+    input:
+        _s: a solution
+        _score: the score of _s
+        _move: a (operation_name, involved participants/events tuple) pair
+    output:
+        the score of _s after performing the move _move
+'''
 def objective_max_incr(s, score, move):
     if move[0] == 'add':
         return score + 1
     if move[0] == 'remove':
         return score - 1
     return score
-
-'''
-    Min events participation objective function.
-    Defines the score of a given solution by the consistency w.r.t. the status.emin vector (soft constraint).
-    input:
-        _s: a solution
-    output:
-        the score of _s
-'''
-def objective_emin(s):
-    total = 0
-    for i in range(len(s)):
-        score_ = sum(ss for ss in s[i]) / status.emin[i] if status.emin[i] > 0 else 1
-        total += min(1, score_)
-    return total
-
-def objective_emin_incr(s, score, move):
-    if move[0] == 'add':
-        if status.emin[move[1][0]] == 0:
-            return score
-        var = sum(k for k in s[move[1][0]]) / status.emin[move[1][0]]
-        return score + min(1, s[move[1][0]][move[1][1]] / status.emin[move[1][0]]) - min(1, var)
-    if move[0] == 'remove':
-        if status.emin[move[1][0]] == 0:
-            return score
-        var = sum(k for k in s[move[1][0]]) / status.emin[move[1][0]]
-        return score + min(1, var - s[move[1][0]][move[1][1]] / status.emin[move[1][0]]) - min(1, var)
-    if move[0] == 'move':
-        score_ = objective_emin_incr(s, score, ('remove', (move[1][0], move[1][1])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][1]] = 0
-        return objective_emin_incr(s_, score_, ('add', (move[1][0], move[1][2])))
-    if move[0] == 'replace':
-        score_ = objective_emin_incr(s, score, ('remove', (move[1][0], move[1][2])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][2]] = 0
-        return objective_emin_incr(s_, score_, ('add', (move[1][1], move[1][2])))
-    if move[0] == 'swap':
-        score_ = objective_emin_incr(s, score, ('move', (move[1][0], move[1][2], move[1][3])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][2]] = 0
-        s_[move[1][0]][move[1][3]] = 1
-        return objective_emin_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
 
 '''
     Selection function of the Best-Neighbor heuristic.
