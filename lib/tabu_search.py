@@ -231,7 +231,7 @@ def is_legal_not_tabu(s_neighbor, tabu):
         1 otherwise
 '''
 def is_legal_not_tabu_aspiration(s_neighbor, tabu):
-    return status.objective(status.s_star, status.s_star_score, s_neighbor[1]) > status.s_star_score or is_legal_not_tabu(s_neighbor, tabu)
+    return status.objective(status.s_, status.s_score, s_neighbor[1]) > status.s_star_score or is_legal_not_tabu(s_neighbor, tabu)
 
 '''
     Neighborhood generator.
@@ -511,19 +511,37 @@ def objective_max_incr(s, score, move):
     input:
         _s_legal: a list of (solution, move) pairs
     output:
-        a pair among _s_legal for which the objective is maximum, uniformly randomly
+        a pair among _s_legal for which the objective is maximum, uniformly randomly, paired with its score
 '''
 def selection_best(s_legal):
     s_star = [s_legal[0]]
-    s_star_score = status.objective(status.s_star, status.s_star_score, s_legal[0][1])
+    s_star_score = status.objective(status.s_, status.s_score, s_legal[0][1])
     for s in s_legal:
-        score = status.objective(status.s_star, status.s_star_score, s[1])
+        score = status.objective(status.s_, status.s_score, s[1])
         if score == s_star_score:
             s_star.append(s)
         elif score > s_star_score:
             s_star = [s]
             s_star_score = score
-    return s_star[random.randint(0, len(s_star) - 1)]
+    return (s_star_score, s_star[random.randint(0, len(s_star) - 1)])
+
+'''
+    Selection function of the First Improvement heuristic.
+    Chooses the first neighbor improving the current solution objective.
+    input:
+        _s_legal: a list of (solution, move) pairs
+    output:
+        the first pair among _s_legal for which the objective outperfoms status.s_score, paired with its score
+        if none, the first pair
+'''
+def selection_first_improvement(s_legal):
+    s_star = s_legal[0]
+    s_star_score = status.objective(status.s_, status.s_score, s_legal[0][1])
+    for s in s_legal:
+        score = status.objective(status.s_, status.s_score, s[1])
+        if score > status.s_score:
+            return (score, s)
+    return (s_star_score, s_star)
 
 '''
     Performs a tabu search.
@@ -539,22 +557,17 @@ def selection_best(s_legal):
 def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
     status.objective = objective
     status.s_star = s
-    if objective == objective_friends_incr:
-        status.s_star_score = objective_friends(status.s_star)
-    elif objective == objective_emin_incr:
-        status.s_star_score = objective_emin(status.s_star)
-    elif objective == objective_max_incr:
-        status.s_star_score = objective_max(status.s_star)
-    elif objective == objective_compound_incr:
-        status.s_star_score = objective_compound(status.s_star)
+    status.s_star_score = globals()[objective.__name__.replace('_incr', '')](status.s_star)
+    status.s_ = status.s_star
+    status.s_score = status.s_star_score
     tabu = []
     while status.attempts:
-        s_legal = [s_neighbor for s_neighbor in neighborhood(status.s_star) if is_legal(s_neighbor, tabu)]
-        s, s_move = selection(s_legal)
-        s_score = objective(status.s_star, status.s_star_score, s_move)
-        if s_score > status.s_star_score:
-            status.s_star = s
-            status.s_star_score = s_score
+        s_legal = [s_neighbor for s_neighbor in neighborhood(status.s_) if is_legal(s_neighbor, tabu)]
+        status.s_score, s_ = selection(s_legal)
+        status.s_, s_move = s_
+        if status.s_score > status.s_star_score:
+            status.s_star = status.s_
+            status.s_star_score = status.s_score
         for participant in extract_tabu_elements(s_move):
             tabu.append((status.attempts, participant))
         expire_features(tabu, status.attempts)
