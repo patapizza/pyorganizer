@@ -75,27 +75,52 @@ class TSTest(unittest.TestCase):
         self.assertEqual(1, objective_friends([[1, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 1], [0, 0, 0]]))
         self.assertEqual(1, objective_friends_incr([[1, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 1], [0, 0, 0]], 1, ('swap', (0, 3, 1, 2))))
 
-    #@unittest.skip("blah")
-    def test_aspiration(self):
-        n = 50
+    def test_selection(self):
+        n = 100
         m = 20
         gen = Generator(n, m)
         init = initial_solution_top_down(gen.p, gen.c, gen.d)
-        attempts = [3, 10, 20, 50]
-        tenures = [2, 4]
-        for attempt in attempts:
-            print("{} attempts".format(attempt))
-            for tenure in tenures:
-                print("Tenure value: {}".format(tenure))
-                status = Status(gen.p, gen.c, gen.d, attempt, tenure)
-                status.set_cf(gen.cf)
-                status.set_status()
-                start = time.time()
-                s, score = tabu_search(init, objective_friends_incr)
-                print("Solution found: {} in {} sec".format(score, time.time() - start))
-                #status.attempts = attempt
-                #start = time.time()
-                #print("Solution found with aspiration: {} in {} sec".format(tabu_search(init, objective_compound_incr, neighborhood_all, is_legal_not_tabu_aspiration)[1], time.time() - start))
+        results = {}
+        loops = 5
+        for i in range(loops):
+            attempts = [3, 10, 20, 50, 100, 1000]
+            tenures = [1, 2]
+            for attempt in attempts:
+                print("{} attempts".format(attempt))
+                for tenure in tenures:
+                    print("Tenure value: {}".format(tenure))
+                    status = Status(gen.p, gen.c, gen.d, attempt, tenure)
+                    status.set_cf(gen.cf)
+                    status.set_status()
+                    start = time.time()
+                    s, score = tabu_search(init, objective_friends_incr, neighborhood_all, is_legal_not_tabu, selection_first_improvement)
+                    elapsed = time.time() - start
+                    print("Solution (first improvement): {} in {} sec".format(score, elapsed))
+                    status.attempts = attempt
+                    status.k = 3
+                    start = time.time()
+                    s_, score_ = tabu_search(init, objective_friends_incr, neighborhood_all, is_legal_not_tabu, selection_best_k)
+                    elapsed_ = time.time() - start
+                    print("Solution (best 3): {} in {} sec".format(score_, elapsed_))
+                    status.attempts = attempt
+                    start = time.time()
+                    s__, score__ = tabu_search(init, objective_friends_incr, neighborhood_all, is_legal_not_tabu, selection_best_k)
+                    elapsed__ = time.time() - start
+                    print("Solution (best 5): {} in {} sec".format(score__, elapsed__))
+                    if i == 0:
+                        results[(attempt, tenure, 0)] = [(score, elapsed)]
+                        results[(attempt, tenure, 1)] = [(score_, elapsed_)]
+                        results[(attempt, tenure, 2)] = [(score__, elapsed__)]
+                    else:
+                        results[(attempt, tenure, 0)].append((score, elapsed))
+                        results[(attempt, tenure, 1)].append((score_, elapsed_))
+                        results[(attempt, tenure, 2)].append((score__, elapsed__))
+        for k, v in results.items():
+            score_all, elapsed_all = 0, 0
+            for score, elapsed in v:
+                score_all += score
+                elapsed_all += elapsed
+            print("{} -> {} in {} sec (average on {} iterations)".format(k, score_all / loops, elapsed_all / loops, loops))
 
 if __name__ == '__main__':
     unittest.main()

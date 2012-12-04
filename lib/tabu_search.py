@@ -27,6 +27,8 @@ class Status:
         self.emin = [0] * len(p)
         '''close friends' adjacency matrix'''
         self.cf = [[0] * len(p)] * len(p)
+        '''setting k default value for the best-k-neighbors selection heuristic'''
+        self.k = 5
 
     '''
         Sets the close friends' adjacency matrix.
@@ -507,7 +509,7 @@ def objective_max_incr(s, score, move):
 
 '''
     Selection function of the Best-Neighbor heuristic.
-    Chooses the neighbor with the best evaluation.
+    Chooses the neighbor with the best evaluation (randomly).
     input:
         _s_legal: a list of (solution, move) pairs
     output:
@@ -524,6 +526,22 @@ def selection_best(s_legal):
             s_star = [s]
             s_star_score = score
     return (s_star_score, s_star[random.randint(0, len(s_star) - 1)])
+
+'''
+    Selection function of the Best-K-Neighbors heuristic.
+    Chooses randomly a neighbor among the best k.
+    input:
+        _s_legal: a list of (solution, move) pairs
+    output:
+        a pair among _s_legal for which the objective is among the status.k best
+'''
+def selection_best_k(s_legal):
+    s_ = []
+    for s in s_legal:
+        score = status.objective(status.s_, status.s_score, s[1])
+        s_.append((score, s))
+    s = sorted(s_, key=lambda x: x[0], reverse=True)
+    return s[random.randint(0, min(len(s) - 1, status.k - 1))]
 
 '''
     Selection function of the First Improvement heuristic.
