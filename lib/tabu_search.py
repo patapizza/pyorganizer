@@ -579,16 +579,39 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
     status.s_ = status.s_star
     status.s_score = status.s_star_score
     tabu = []
-    while status.attempts:
+    attempts = status.attempts
+    while attempts:
         s_legal = [s_neighbor for s_neighbor in neighborhood(status.s_) if is_legal(s_neighbor, tabu)]
         status.s_score, s_ = selection(s_legal)
         status.s_, s_move = s_
         if status.s_score > status.s_star_score:
+            if status.s_score - status.s_star_score >= status.delta:
+                attempts = status.attempts + 1
             status.s_star = status.s_
             status.s_star_score = status.s_score
         for participant in extract_tabu_elements(s_move):
             tabu.append((status.attempts, participant))
         expire_features(tabu, status.attempts)
-        status.attempts -= 1
+        attempts -= 1
     return (status.s_star, status.s_star_score)
 
+'''
+    Performs a tabu search with restarts.
+    input:
+        _objective: the objective function to maximize
+        _neighborhood: the neighborhood generator function
+        _is_legal: the legal moves filter function
+        _selection: the selection function
+    output:
+        the best solution found after _restarts iterations and its score as a pair
+'''
+def tabu_search_restarts(objective=objective_friends_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
+    s_star, s_star_score = None, 0
+    while status.restarts:
+        s_init = initial_solution_top_down(status.p, status.c, status.d)
+        s, s_score = tabu_search(s_init, objective, neighborhood, is_legal, selection)
+        if s_score > s_star_score:
+            s_star_score = s_score
+            s_star = s
+        status.restarts -= 1
+    return (s_star, s_star_score)
