@@ -645,19 +645,21 @@ def objective_median_age_incr(s, score, move):
             ('add', (participant i, event j))
         '''
         if status.mage[move[1][1]] > 0 and status.age[move[1][0]] > 0:
+            a, b = score_.params[move[1][1]]
             new_a = a + status.age[move[1][0]]
             new_b = b + 1
             score_.params[move[1][1]] = [new_a, new_b]
-            score_.total = score_.total + abs(a / b - status.mage[move[1][1]]) - abs(new_a / new_b - status.mage[move[1][1]])
+            score_.total = score_.total + (abs(a / b - status.mage[move[1][1]]) if b > 0 else status.mage[move[1][1]]) - abs(new_a / new_b - status.mage[move[1][1]])
     elif move[0] == 'remove':
         '''
             ('remove', (participant i, event j))
         '''
         if status.mage[move[1][1]] > 0 and status.age[move[1][0]] > 0:
+            a, b = score_.params[move[1][1]]
             new_a = a - status.age[move[1][0]]
-            new_b = b - 1
+            new_b = b - 1 if b > 0 else 0 # FIXME shouldn't happen
             score_.params[move[1][1]] = [new_a, new_b]
-            score_.total = score_.total + abs(a / b - status.mage[move[1][1]]) - (abs(new_a / new_b - status.mage[move[1][1]]) if new_b > 0 else status.mage[j])
+            score_.total = score_.total + (abs(a / b - status.mage[move[1][1]]) if b > 0 else status.mage[move[1][1]]) - (abs(new_a / new_b - status.mage[move[1][1]]) if new_b > 0 else status.mage[move[1][1]])
     elif move[0] == 'move':
         '''
             ('move', (participant i, event j1, event j2))
