@@ -348,11 +348,9 @@ def neighborhood_all(s):
     input:
         _s: a solution
     output:
-        the score of _s
+        the score of _s (Score object)
+    TODO: weighted sum
 '''
-#def objective_compound(s):
-'''TODO: compute the compound objective explicitly to increase performance'''
-#    return objective_max(s) + objective_emin(s) + objective_friends(s)
 def objective_compound(s):
     score = Score(objective_compound_incr)
     score.subscores = []
@@ -370,7 +368,13 @@ def objective_compound(s):
 
 
 '''
-    ! FIXME: Not right.
+    Compound objective function (incremental version).
+    input:
+        _s: a solution
+        _score: the score of _s (Score object)
+        _move: a (operation_name, involved participants/events tuple) pair
+    output:
+        the score of _s after performing the move _move (Score object)
 '''
 def objective_compound_incr(s, score, move):
     score_ = Score(score.objective, 0, score.params)
@@ -381,8 +385,6 @@ def objective_compound_incr(s, score, move):
         subscores.append(subscore_)
     score_.subscores = subscores
     return score_
-#def objective_compound_incr(s, score, move):
-#    return objective_max_incr(s, score, move) + objective_emin_incr(s, score, move) + objective_friends_incr(s, score, move)
 
 '''
     Min events participation objective function.
@@ -390,7 +392,7 @@ def objective_compound_incr(s, score, move):
     input:
         _s: a solution
     output:
-        the score of _s
+        the score of _s (Score object)
 '''
 def objective_emin(s):
     score = Score(objective_emin_incr)
@@ -406,10 +408,10 @@ def objective_emin(s):
     Defines the score of a given solution by the consistency w.r.t. the status.emin vector (soft constraint).
     input:
         _s: a solution
-        _score: the score of _s
+        _score: the score of _s (Score object)
         _move: a (operation_name, involved participants/events tuple) pair
     output:
-        the score of _s after performing the move _move
+        the score of _s after performing the move _move (Score object)
 '''
 def objective_emin_incr(s, score, move):
     score_ = Score(score.objective, score.total, score.params)
@@ -458,7 +460,7 @@ def objective_emin_incr(s, score, move):
     input:
         _s: a solution
     output:
-        the score of _s
+        the score of _s (Score object)
 '''
 def objective_friends(s):
     score = Score(objective_friends_incr)
@@ -466,7 +468,7 @@ def objective_friends(s):
         for i in range(len(s)):
             for k in range(len(s)):
                 if i != k:
-                    score.total += ((status.cf[i][k]) * s[i][j] * s[k][j])
+                    score.total += (status.cf[i][k] * s[i][j] * s[k][j])
     return score
 
 '''
@@ -474,10 +476,10 @@ def objective_friends(s):
     Defines the score of a given solution by summing the "friendship relations" between participants.
     input:
         _s: a solution
-        _score: the score of _s
+        _score: the score of _s (Score object)
         _move: a (operation_name, involved participants/events tuple) pair
     output:
-        the score of _s after performing the move _move
+        the score of _s after performing the move _move (Score object)
 '''
 def objective_friends_incr(s, score, move):
     score_ = Score(score.objective, score.total, score.params)
@@ -527,7 +529,7 @@ def objective_friends_incr(s, score, move):
     input:
         _s: a solution
     output:
-        the score of _s
+        the score of _s (Score object)
 '''
 def objective_max(s):
     score = Score(objective_max_incr)
@@ -540,10 +542,10 @@ def objective_max(s):
     Defines the score of a given solution by summing all the participations.
     input:
         _s: a solution
-        _score: the score of _s
+        _score: the score of _s (Score object)
         _move: a (operation_name, involved participants/events tuple) pair
     output:
-        the score of _s after performing the move _move
+        the score of _s after performing the move _move (Score object)
 '''
 def objective_max_incr(s, score, move):
     score_ = Score(score.objective, score.total, score.params)
@@ -586,7 +588,7 @@ def objective_max_incr(s, score, move):
     input:
         _s_legal: a list of (solution, move) pairs
     output:
-        a pair among _s_legal for which the objective is maximum, uniformly randomly, paired with its score
+        a pair among _s_legal for which the objective is maximum, uniformly randomly, paired with its score (Score object)
 '''
 def selection_best(s_legal):
     s_star = [s_legal[0]]
@@ -622,8 +624,8 @@ def selection_best_k(s_legal):
     input:
         _s_legal: a list of (solution, move) pairs
     output:
-        the first pair among _s_legal for which the objective outperfoms status.s_score, paired with its score
-        if none, the first pair
+        the first pair among _s_legal for which the objective outperfoms status.s_score, paired with its score (Score object)
+        if none, the first pair ! FIXME: should return the best one in that case
 '''
 def selection_first_improvement(s_legal):
     s_star = s_legal[0]
