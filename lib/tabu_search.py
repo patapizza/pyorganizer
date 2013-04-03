@@ -46,6 +46,12 @@ class Status:
         self.age = [0] * len(p)
         '''aimed median age for events'''
         self.mage = [0] * len(p[0])
+        '''sex of participants; 1 is male, 0 is female'''
+        self.male = [0] * len(p)
+        '''aimed sex ratio for events'''
+        self.sratio = [0] * len(p[0])
+        '''min capacity aimed for events'''
+        self.cmin = [0] * len(p[0])
 
     '''
         Sets the age vector of participants.
@@ -65,6 +71,18 @@ class Status:
         assert len(cf) == len(self.cf)
         assert len(cf[0]) == len(self.cf[0])
         self.cf = cf
+
+    '''
+        Sets the min capacity vector for events.
+        input:
+            _cmin: the new cmin vector
+    '''
+    def set_cmin(self, cmin):
+        assert len(cmin) == len(self.cmin)
+        for j in range(len(cmin)):
+            if self.c[j] > 0:
+                assert cmin[j] <= self.c[j]
+        self.cmin = cmin
 
     '''
         Sets the max number of events that participants would like to attend.
@@ -104,6 +122,28 @@ class Status:
     def set_mage(self, mage):
         assert len(mage) == len(self.mage)
         self.mage = mage
+
+    '''
+        Sets the male vector for participants.
+        input:
+            _male: the new male vector
+    '''
+    def set_male(self, male):
+        assert len(male) == len(self.male)
+        for i in male:
+            assert i == 0 or i == 1
+        self.male = male
+
+    '''
+        Sets the aimed sex ratio vector for events.
+        input:
+            _sratio: the new sratio vector
+    '''
+    def set_sratio(self, sratio):
+        assert len(sratio) == len(self.sratio)
+        for i in sratio:
+            assert i >= 0 and i <= 1
+        self.sratio = sratio
 
     '''
         Sets the global status reference to this instance.
@@ -364,6 +404,79 @@ def neighborhood_all(s):
                     if verbose:
                         print("ADD participant {} to event {}".format(i, j))
                     yield (s_, ('add', (i, j)))
+'''
+    Min participants objective function.
+    Defines the score of a given solution as the number of extra participants, i.e. over the cmin limit.
+    input:
+        _s: a solution
+    output:
+        the score of _s (Score object)
+'''
+def objective_cmin(s):
+    score = Score(objective_cmin_incr)
+    for j in range(len(s[0])):
+        a = (sum(s[i][j] for i in range(len(s))) / status.cmin[j]) if status.cmin[j] > 0 else 1
+        score.params.append(a)
+        score.total += min(1, a)
+    return score
+
+'''
+    Min participants objective function (incremental version).
+    Defines the score of a given solution as the number of extra participants, i.e. over the cmin limit.
+    input:
+        _s: a solution
+    output:
+        the score of _s (Score object)
+'''
+def objective_cmin_incr(s, score, move):
+    score_ = Score(score.objective, score.total, score.params)
+    #print("{} {}".format(score_.total, objective_cmin(s).total))
+    #print(move)
+    if move[0] == 'add':
+        '''
+            ('add', (participant i, event j))
+        '''
+        a = score_.params[move[1][1]]
+        new_a = (a + 1 / status.cmin[move[1][1]]) if status.cmin[move[1][1]] > 0 else 1
+        score_.total = score_.total - min(1, a) + min(1, new_a)
+        score_.params[move[1][1]] = new_a
+    elif move[0] == 'remove':
+        '''
+            ('remove', (participant i, event j))
+        '''
+        a = score_.params[move[1][1]]
+        new_a = (a - 1 / status.cmin[move[1][1]]) if status.cmin[move[1][1]] > 0 else 1
+        score_.total = score_.total - min(1, a) + min(1, new_a)
+        score_.params[move[1][1]] = new_a
+    elif move[0] == 'move':
+        '''
+            ('move', (participant i, event j1, event j2))
+            -> ('remove', (i, j1)) + ('add', (i, j2))
+        '''
+        score_ = objective_cmin_incr(s, score_, ('remove', (move[1][0], move[1][1])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][1]] = 0
+        score_ = objective_cmin_incr(s_, score_, ('add', (move[1][0], move[1][2])))
+    elif move[0] == 'replace':
+        '''
+            ('replace', (participant i1, participant i2, event j))
+            -> ('remove', (i1, j)) + ('add', (i2, j))
+        '''
+        score_ = objective_cmin_incr(s, score_, ('remove', (move[1][0], move[1][2])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        score_ = objective_cmin_incr(s_, score_, ('add', (move[1][1], move[1][2])))
+    elif move[0] == 'swap':
+        '''
+            ('swap', (participant i1, participant i2, event j1, event j2))
+            -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
+        '''
+        score_ = objective_cmin_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        s_[move[1][0]][move[1][3]] = 1
+        score_ = objective_cmin_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
+    return score_
 
 '''
     Compound objective function.
@@ -382,8 +495,16 @@ def objective_compound(s):
     subscore = objective_emin(s)
     score.total += subscore.total
     score.subscores.append(subscore)
-    subscore = objective_median_age(s)
-    score.total -= subscore.total
+    '''! FIXME objective_emin and objective_cmin not consistent neither!'''
+    '''! FIXME objective_median_age and objective_sex_ratio not consistent'''
+    '''subscore = objective_median_age(s)
+    score.total += subscore.total
+    score.subscores.append(subscore)
+    subscore = objective_sex_ratio(s)
+    score.total += subscore.total
+    score.subscores.append(subscore)'''
+    subscore = objective_cmin(s)
+    score.total += subscore.total
     score.subscores.append(subscore)
     subscore = objective_friends(s)
     score.total += subscore.total
@@ -440,6 +561,8 @@ def objective_emin(s):
 '''
 def objective_emin_incr(s, score, move):
     score_ = Score(score.objective, score.total, score.params)
+    #print("{} {}".format(score_.total, objective_emin(s).total))
+    #print(move)
     if move[0] == 'add':
         '''
             ('add', (participant i, event j))
@@ -461,22 +584,40 @@ def objective_emin_incr(s, score, move):
             ('move', (participant i, event j1, event j2))
             -> ('remove', (i, j1)) + ('add', (i, j2))
         '''
-        score_ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][1])))
-        score_ = objective_emin_incr(s, score_, ('add', (move[1][0], move[1][2])))
+        print("MOVE-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
+        #print("MOVE-- before remove: {}".format(score_.total))
+        score__ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][1])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][1]] = 0
+        #print("MOVE-- score after remove: {} ({})".format(score_.total, objective_emin(s_).total))
+        score___ = objective_emin_incr(s_, score__, ('add', (move[1][0], move[1][2])))
+        s__ = [ss[:] for ss in s_]
+        s__[move[1][0]][move[1][2]] = 1
+        #print("MOVE-- score after add: {}".format(score_.total))
+        print("MOVE-- AFTER: {} ({})".format(objective_emin(s__).total, score___.total))
     elif move[0] == 'replace':
         '''
             ('replace', (participant i1, participant i2, event j))
             -> ('remove', (i1, j)) + ('add', (i2, j))
         '''
-        score_ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][2])))
-        score_ = objective_emin_incr(s, score_, ('add', (move[1][1], move[1][2])))
+        print("REPLACE-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
+        score__ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][2])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        score___ = objective_emin_incr(s_, score__, ('add', (move[1][1], move[1][2])))
+        s__ = [ss[:] for ss in s_]
+        s__[move[1][1]][move[1][2]] = 1
+        print("REPLACE-- AFTER: {} ({})".format(objective_emin(s__).total, score___.total))
     elif move[0] == 'swap':
         '''
             ('swap', (participant i1, participant i2, event j1, event j2))
             -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
         '''
-        score_ = objective_emin_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
-        score_ = objective_emin_incr(s, score_, ('move', (move[1][1], move[1][3], move[1][2])))
+        score__ = objective_emin_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        s_[move[1][0]][move[1][3]] = 1
+        score___ = objective_emin_incr(s_, score__, ('move', (move[1][1], move[1][3], move[1][2])))
     return score_
 
 '''
@@ -702,6 +843,97 @@ def objective_median_age_incr(s, score, move):
     return score_
 
 '''
+    Sex ratio objective function.
+    Defines the score (cost) of a given solution by its distance w.r.t. the sratio vector.
+    input:
+        _s: a solution
+    output:
+        the score of _s (Score object)
+'''
+def objective_sex_ratio(s):
+    score = Score(objective_sex_ratio_incr)
+    for j in range(len(s[0])):
+        a, b = 0, 0
+        for i in range(len(s)):
+            a += (s[i][j] * status.male[i])
+            b += s[i][j]
+        score.params.append([a, b])
+        if status.sratio[j] > 0:
+            score.total -= abs(a / b - status.sratio[j]) if b > 0 else status.sratio[j]
+    return score
+
+'''
+    Sex ratio objective function (incremental version).
+    Defines the score of a given solution by its distance w.r.t. the sratio vector.
+    input:
+        _s: a solution
+        _score: the score of _s (Score object)
+        _move: a (operation_name, involved participants/events tuple) pair
+    output:
+        the score of _s after performing the move _move (Score object)
+'''
+def objective_sex_ratio_incr(s, score, move):
+    score_ = Score(score.objective, score.total, score.params)
+    print("{} : {}".format(score_.total, objective_sex_ratio(s).total))
+    print(move)
+    if move[0] == 'add':
+        '''
+            ('add', (participant i, event j))
+        '''
+        a, b = score_.params[move[1][1]]
+        print("(a,b) -> ({},{})".format(a, b))
+        new_a = a + status.male[move[1][0]]
+        new_b = b + 1
+        print("(new_a,new_b) -> ({},{})".format(new_a, new_b))
+        score_.params[move[1][1]] = [new_a, new_b]
+        if status.sratio[move[1][1]] > 0:
+            score_.total = score_.total + (abs(a / b - status.sratio[move[1][1]]) if b > 0 else status.sratio[move[1][1]]) - abs(new_a / new_b - status.sratio[move[1][1]])
+    elif move[0] == 'remove':
+        '''
+            ('remove', (participant i, event j))
+        '''
+        a, b = score_.params[move[1][1]]
+        print("(a,b) -> ({},{})".format(a, b))
+        new_a = a - status.male[move[1][0]]
+        if b < 1:
+            print("wtf {} {} {}".format(a, b, s[move[1][0]][move[1][1]]))
+        new_b = b - 1 if b > 0 else 0 # FIXME shouldn't happen
+        print("(new_a,new_b) -> ({},{})".format(new_a, new_b))
+        score_.params[move[1][1]] = [new_a, new_b]
+        if status.sratio[move[1][1]] > 0:
+            score_.total = score_.total + (abs(a / b - status.sratio[move[1][1]]) if b > 0 else status.sratio[move[1][1]]) - (abs(new_a / new_b - status.sratio[move[1][1]]) if new_b > 0 else status.sratio[move[1][1]])
+    elif move[0] == 'move':
+        print("x {} {}".format(score_.params[move[1][1]][0], score_.params[move[1][1]][1]))
+        '''
+            ('move', (participant i, event j1, event j2))
+            -> ('remove', (i, j1)) + ('add', (i, j2))
+        '''
+        score_ = objective_sex_ratio_incr(s, score_, ('remove', (move[1][0], move[1][1])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][1]] = 0
+        score_ = objective_sex_ratio_incr(s_, score_, ('add', (move[1][0], move[1][2])))
+    elif move[0] == 'replace':
+        '''
+            ('replace', (participant i1, participant i2, event j))
+            -> ('remove', (i1, j)) + ('add', (i2, j))
+        '''
+        score_ = objective_sex_ratio_incr(s, score_, ('remove', (move[1][0], move[1][2])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        score_ = objective_sex_ratio_incr(s_, score_, ('add', (move[1][1], move[1][2])))
+    elif move[0] == 'swap':
+        '''
+            ('swap', (participant i1, participant i2, event j1, event j2))
+            -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
+        '''
+        score_ = objective_sex_ratio_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][2]] = 0
+        s_[move[1][0]][move[1][3]] = 1
+        score_ = objective_sex_ratio_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
+    return score_
+
+'''
     Selection function of the Best-Neighbor heuristic.
     Chooses the neighbor with the best evaluation (randomly).
     input:
@@ -797,6 +1029,7 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
 '''
     Performs a tabu search with restarts.
     input:
+        _initial_solution: the function providing a feasible initial solution
         _objective: the objective function to maximize
         _neighborhood: the neighborhood generator function
         _is_legal: the legal moves filter function
@@ -804,10 +1037,10 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
     output:
         the best solution found after _restarts iterations and its score as a pair
 '''
-def tabu_search_restarts(objective=objective_friends_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
+def tabu_search_restarts(initial_solution=initial_solution_top_down, objective=objective_friends_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
     s_star, s_star_score = None, 0
     while status.restarts:
-        s_init = initial_solution_top_down(status.p, status.c, status.d)
+        s_init = initial_solution(status.p, status.c, status.d)
         s, s_score = tabu_search(s_init, objective, neighborhood, is_legal, selection)
         if s_score > s_star_score:
             s_star_score = s_score
