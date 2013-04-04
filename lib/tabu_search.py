@@ -484,16 +484,17 @@ def objective_cmin_incr(s, score, move):
         _s: a solution
     output:
         the score of _s (Score object)
-    TODO: weighted sum
 '''
 def objective_compound(s):
     score = Score(objective_compound_incr)
     score.subscores = []
     subscore = objective_max(s)
-    score.total += subscore.total
+    subscore.weight = 0.25
+    score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)
     subscore = objective_emin(s)
-    score.total += subscore.total
+    subscore.weight = 0.25
+    score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)
     '''! FIXME objective_emin and objective_cmin not consistent neither!'''
     '''! FIXME objective_median_age and objective_sex_ratio not consistent'''
@@ -504,10 +505,12 @@ def objective_compound(s):
     score.total += subscore.total
     score.subscores.append(subscore)'''
     subscore = objective_cmin(s)
-    score.total += subscore.total
+    subscore.weight = 0.25
+    score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)
     subscore = objective_friends(s)
-    score.total += subscore.total
+    subscore.weight = 0.25
+    score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)
     print("s_init compounded score: {}".format(score.total))
     return score
@@ -527,7 +530,8 @@ def objective_compound_incr(s, score, move):
     subscores = []
     for subscore in score.subscores:
         subscore_ = subscore.objective(s, subscore, move)
-        score_.total += subscore_.total
+        subscore_.weight = subscore.weight
+        score_.total += (subscore_.weight * subscore_.total)
         subscores.append(subscore_)
     score_.subscores = subscores
     return score_
@@ -567,18 +571,26 @@ def objective_emin_incr(s, score, move):
         '''
             ('add', (participant i, event j))
         '''
+        print("ADD-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
         a = score_.params[move[1][0]]
         new_a = (a + 1 / status.emin[move[1][0]]) if status.emin[move[1][0]] > 0 else 1
         score_.total = score_.total - min(1, a) + min(1, new_a)
         score_.params[move[1][0]] = new_a 
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][1]] = 1
+        print("ADD-- AFTER: {} ({})".format(objective_emin(s_).total, score_.total))
     elif move[0] == 'remove':
         '''
             ('remove', (participant i, event j))
         '''
+        print("REMOVE-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
         a = score_.params[move[1][0]]
         new_a = (a - 1 / status.emin[move[1][0]]) if status.emin[move[1][0]] > 0 else 1
         score_.total = score_.total - min(1, a) + min(1, new_a)
         score_.params[move[1][0]] = new_a
+        s_ = [ss[:] for ss in s]
+        s_[move[1][0]][move[1][1]] = 0
+        print("REMOVE-- AFTER: {} ({})".format(objective_emin(s_).total, score_.total))
     elif move[0] == 'move':
         '''
             ('move', (participant i, event j1, event j2))
@@ -586,38 +598,36 @@ def objective_emin_incr(s, score, move):
         '''
         print("MOVE-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
         #print("MOVE-- before remove: {}".format(score_.total))
-        score__ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][1])))
+        score_ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][1])))
         s_ = [ss[:] for ss in s]
         s_[move[1][0]][move[1][1]] = 0
-        #print("MOVE-- score after remove: {} ({})".format(score_.total, objective_emin(s_).total))
-        score___ = objective_emin_incr(s_, score__, ('add', (move[1][0], move[1][2])))
-        s__ = [ss[:] for ss in s_]
-        s__[move[1][0]][move[1][2]] = 1
+        print("MOVE-- score after remove: {} ({})".format(score_.total, objective_emin(s_).total))
+        score_ = objective_emin_incr(s_, score_, ('add', (move[1][0], move[1][2])))
+        s_[move[1][0]][move[1][2]] = 1
         #print("MOVE-- score after add: {}".format(score_.total))
-        print("MOVE-- AFTER: {} ({})".format(objective_emin(s__).total, score___.total))
+        print("MOVE-- AFTER: {} ({})".format(objective_emin(s_).total, score_.total))
     elif move[0] == 'replace':
         '''
             ('replace', (participant i1, participant i2, event j))
             -> ('remove', (i1, j)) + ('add', (i2, j))
         '''
         print("REPLACE-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
-        score__ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][2])))
+        score_ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][2])))
         s_ = [ss[:] for ss in s]
         s_[move[1][0]][move[1][2]] = 0
-        score___ = objective_emin_incr(s_, score__, ('add', (move[1][1], move[1][2])))
-        s__ = [ss[:] for ss in s_]
-        s__[move[1][1]][move[1][2]] = 1
-        print("REPLACE-- AFTER: {} ({})".format(objective_emin(s__).total, score___.total))
+        score_ = objective_emin_incr(s_, score_, ('add', (move[1][1], move[1][2])))
+        s_[move[1][1]][move[1][2]] = 1
+        print("REPLACE-- AFTER: {} ({})".format(objective_emin(s_).total, score_.total))
     elif move[0] == 'swap':
         '''
             ('swap', (participant i1, participant i2, event j1, event j2))
             -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
         '''
-        score__ = objective_emin_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
+        score_ = objective_emin_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
         s_ = [ss[:] for ss in s]
         s_[move[1][0]][move[1][2]] = 0
         s_[move[1][0]][move[1][3]] = 1
-        score___ = objective_emin_incr(s_, score__, ('move', (move[1][1], move[1][3], move[1][2])))
+        score_ = objective_emin_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
     return score_
 
 '''
