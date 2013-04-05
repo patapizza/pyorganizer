@@ -157,10 +157,10 @@ class Status:
     ! Acts in-place.
     input:
         _tabu: a list of (age, move) pairs
-        _attemps: the number of iterations yet to perform
+        _attempts: the number of iterations yet to perform
 '''
-def expire_features(tabu, attemps):
-    while tabu and tabu[0][0] - attemps == status.tenure:
+def expire_features(tabu, attempts):
+    while tabu and tabu[0][0] - attempts == status.tenure:
         del tabu[0]
 
 '''
@@ -183,6 +183,8 @@ def extract_tabu_elements(s_move):
         _d: the exclusion matrix
     output:
         a consistent solution
+    ! FIXME now 0 <= p < 2: ordering preferences
+    ! FIXME emax
 '''
 def initial_solution_bottom_up(p, c, d):
     '''TODO: check if it's full instead of limited number of attempts'''
@@ -216,6 +218,8 @@ def initial_solution_bottom_up(p, c, d):
         _d: the exclusion matrix
     output:
         a consistent solution
+    ! FIXME now 0 <= p < 2: ordering preferences
+    ! FIXME emax
 '''
 def initial_solution_top_down(p, c, d):
     '''TODO: implement new algorithm
@@ -324,6 +328,7 @@ def is_legal_not_tabu_aspiration(s_neighbor, tabu):
         _s: a solution
     output:
         a set of (neighbor, move) pairs
+    ! FIXME - 0 <= p < 2 now!
 '''
 def neighborhood_all(s):
     assert len(s) == len(status.p)
@@ -404,6 +409,7 @@ def neighborhood_all(s):
                     if verbose:
                         print("ADD participant {} to event {}".format(i, j))
                     yield (s_, ('add', (i, j)))
+
 '''
     Min participants objective function.
     Defines the score of a given solution as the number of extra participants, i.e. over the cmin limit.
@@ -1018,7 +1024,9 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
     improving = status.improving
     while status.attempts and improving:
         s_legal = [s_neighbor for s_neighbor in neighborhood(status.s_) if is_legal(s_neighbor, tabu)]
-        if len(s_legal) == 0: # optimum local; we should break - shouldn't happen anyway with improving and large n, m...
+        '''all neighbors contain tabu-active elements'''
+        '''TODO: get all the oldest neighbors out of tabu list'''
+        if len(s_legal) == 0:
             expire_features(tabu, status.attempts)
             status.attempts -= 1
             continue
