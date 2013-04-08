@@ -52,6 +52,8 @@ class Status:
         self.sratio = [0] * len(p[0])
         '''min capacity aimed for events'''
         self.cmin = [0] * len(p[0])
+        '''dictionary of previously computed participations'''
+        self.chosen_ones = {}
 
     '''
         Sets the age vector of participants.
@@ -335,11 +337,9 @@ def neighborhood_all(s):
     assert len(s[0]) == len(status.p[0])
     for i in range(len(status.p)):
         indices = []
-        participations = 0
         for j in range(len(s[i])):
-            if s[i][j] == 1:
+            if s[i][j] == 1 and (i,j) not in status.chosen_ones:
                 indices.append(j)
-                participations += 1
                 '''REMOVE'''
                 s_ = [ss[:] for ss in s]
                 s_[i][j] = 0
@@ -348,11 +348,11 @@ def neighborhood_all(s):
                 yield (s_, ('remove', (i, j)))
         for j in range(len(status.p[i])):
             if status.p[i][j] == 1 and s[i][j] == 0:
-                if participations > 0:
+                if len(indices) > 0:
                     c_consistency_checked = 0
                     c_consistent = 0
                     for k in range(len(s[i])):
-                        if k != j and s[i][k] == 1:
+                        if k != j and s[i][k] == 1 and (i,k) not in status.chosen_ones:
                             indices_ = indices[:]
                             indices_.pop(indices_.index(k))
                             if not is_d_consistent(j, indices_):
@@ -387,13 +387,13 @@ def neighborhood_all(s):
                                             print("SWAP participant {} of event {} with participant {} of event {}".format(i, k, ii, j))
                                         yield (s_, ('swap', (i, ii, k, j)))
                 '''checking that participant _i hasn't reached his max attending events' boundary yet'''
-                if participations == status.emax[i]:
+                if len(indices) == status.emax[i]:
                     continue
                 d_consistent = is_d_consistent(j, indices)
                 if d_consistent:
                     '''REPLACE'''
                     for k in range(len(s)):
-                        if s[k][j] == 1:
+                        if s[k][j] == 1 and (k,j) not in status.chosen_ones:
                             s_ = [ss[:] for ss in s]
                             s_[k][j] = 0
                             s_[i][j] = 1
@@ -1026,6 +1026,7 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
         s_legal = [s_neighbor for s_neighbor in neighborhood(status.s_) if is_legal(s_neighbor, tabu)]
         '''all neighbors contain tabu-active elements'''
         '''TODO: get all the oldest neighbors out of tabu list'''
+        '''extension/discussion: see JB mails as of Fri 04/05'''
         if len(s_legal) == 0:
             expire_features(tabu, status.attempts)
             status.attempts -= 1
