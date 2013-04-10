@@ -82,15 +82,18 @@ def populate_data(users, events, friends, attendees):
     participations = [0] * len(users)
     for attendee in attendees:
         eid, uid, status, pos, id_ = attendee
-        if eid in eids and status == 1: # "attending"
+        if eid in eids and (status == 1 or status == 3 or status == 4): # "subscribed" or "confirmed" or "not chosen"
             participations[uids[uid]] += 1
+    declines = []
     for attendee in attendees:
         eid, uid, status, pos, id_ = attendee
         if eid in eids:
-            if status == 1: # "attending"
+            if status == 1 or status == 3 or status == 4: # "subscribed" or "confirmed" or "not chosen"
                 p[uids[uid]][eids[eid]] = (pos + participations[uids[uid]]) / participations[uids[uid]]
-            if status == 3: # "chosen"
+            if status == 3: # "confirmed"
                 chosen_ones[(uids[uid],eids[eid])] = 1
+            if status == 5: # "declined"
+                declines.append((uid, eid))
     for e1 in events:
         for e2 in events:
             if e1[4] <= e2[4] and e1[5] >= e2[4]:
@@ -110,73 +113,87 @@ def populate_data(users, events, friends, attendees):
 
     if verbose:
         print('...done!')
-    return status, uids, eids
+    return status, uids, eids, declines
 
-def update_data(cur, uids, eids, s):
+def update_data(cur, uids, eids, declines, s):
     for k, v in uids.items():
         for l, w in eids.items():
-            status = 4
-            if s[v][w] == 1:
-                status = 3
-            '''
-                todo: check if user k didn't decline in the meanwhile
-                if it's the case, run quick searches to check next participant
-            '''
-            cur.execute("UPDATE attendees SET status=%s WHERE status=1 AND uid=%s AND eid=%s", (status, k, l))
+            if (k, l) in declines:
+                cur.execute("DELETE FROM attendees WHERE status=5 AND uid=%s AND eid=%s", (k, l))
+            else:
+                cur.execute("UPDATE attendees SET status=%s WHERE status=1 AND uid=%s AND eid=%s", ((3 if s[v][w] == 1 else 4), k, l))
+
+'''
+    Checks if any user declined during previous (heavy) search.
+    If so, we need to relaunch a (light) search.
+'''
+def check_declines(cur):
+    cur.execute("SELECT * FROM attendees WHERE status=5")
+    return 1 if len(cur.fetchall()) > 0 else 0
 
 if __name__ == "__main__":
     params = "dbname=db host=localhost port=5432 user=foo password=bar"
 
-    '''connecting'''
-    con = connect(params)
-    if not con:
-        sys.exit(1)
-    cur = con.cursor()
+    declines = 1
+    while declines:
+        '''connecting'''
+        con = connect(params)
+        if not con:
+            sys.exit(1)
+        cur = con.cursor()
+        
+        '''fetching data from db'''
+        users, events, friends, attendees = fetch_data(cur)
     
-    '''fetching data from db'''
-    users, events, friends, attendees = fetch_data(cur)
+        '''closing connection'''
+        con.close()
 
-    '''closing connection'''
-    con.close()
+        '''initializing status object'''
+        status, uids, eids, declines = populate_data(users, events, friends, attendees)
 
-    '''initializing status object'''
-    status, uids, eids = populate_data(users, events, friends, attendees)
+        print("Preferences matrix: {}".format(status.p))
+        print("Exclusion matrix: {}".format(status.d))
+        print("CF adjacency matrix: {}".format(status.cf))
+        print("Capacity vector: {}".format(status.c))
+        print("Emax: {}".format(status.emax))
 
-    print("Preferences matrix: {}".format(status.p))
-    print("Exclusion matrix: {}".format(status.d))
-    print("CF adjacency matrix: {}".format(status.cf))
-    print("Capacity vector: {}".format(status.c))
-    print("Emax: {}".format(status.emax))
+        '''setting meta-parameters'''
+        status.attempts = 100
+        status.tenure = 1
+        status.improving = 5
+        status.delta = 2
+        status.allowed_time = 60
+        status.set_status()
 
-    '''setting meta-parameters'''
-    status.attempts = 100
-    status.tenure = 1
-    status.improving = 5
-    status.delta = 2
-    status.allowed_time = 60
-    status.set_status()
+        '''launching search'''
+        if verbose:
+            print("Launching {} search... ({} seconds)".format(("light" if len(declines) > 0 else "heavy"), status.allowed_time))
+        init = initial_solution_top_down(status.p, status.c, status.d)
+        neighborhood = neighborhood_all
+        if len(declines) > 0:
+            neighborhood = neighborhood_add
+            status.attempts = len(declines) * 2
+            status.tenure = 0
+        s, score = tabu_search(init, objective_compound_incr, neighborhood, is_legal_not_tabu, selection_best_k)
+        print("Solution score: {}".format(score))
+        print("Solution: {}".format(s))
 
-    '''launching search'''
-    if verbose:
-        print("Launching search... ({} seconds)".format(status.allowed_time))
-    init = initial_solution_top_down(status.p, status.c, status.d)
-    s, score = tabu_search(init, objective_compound_incr, neighborhood_all, is_legal_not_tabu, selection_best_k)
-    print("Solution score: {}".format(score))
-    print("Solution: {}".format(s))
-
-    '''connecting'''
-    con = connect(params)
-    if not con:
-        sys.exit(1)
-    cur = con.cursor()
+        '''connecting'''
+        con = connect(params)
+        if not con:
+            sys.exit(1)
+        cur = con.cursor()
     
-    '''updating database'''
-    if verbose:
-        print("--- Updating database...")
-    update_data(cur, uids, eids, s)
-    con.commit()
-    if verbose:
-        print("...done.")
+        '''updating database'''
+        if verbose:
+            print("--- Updating database...")
+        update_data(cur, uids, eids, declines, s)
+        con.commit()
+        if verbose:
+            print("...done.")
 
-    '''closing connection'''
-    con.close()
+        '''checking if we need to launch a "light" search'''
+        declines = check_declines(cur)
+
+        '''closing connection'''
+        con.close()
