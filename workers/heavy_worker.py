@@ -150,13 +150,15 @@ if __name__ == "__main__":
 
     '''setting meta-parameters'''
     status.attempts = 100
-    status.tenure = 0
+    status.tenure = 1
     status.improving = 5
-    status.delta = 0
+    status.delta = 2
     status.allowed_time = 60
     status.set_status()
 
     '''launching search'''
+    if verbose:
+        print("Launching search... ({} seconds)".format(status.allowed_time))
     init = initial_solution_top_down(status.p, status.c, status.d)
     s, score = tabu_search(init, objective_compound_incr, neighborhood_all, is_legal_not_tabu, selection_best_k)
     print("Solution score: {}".format(score))
