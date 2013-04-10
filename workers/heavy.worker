@@ -1,0 +1,3 @@
+runtime "python"
+exec "heavy_worker.py"
+file "../lib/tabu_search.py"
