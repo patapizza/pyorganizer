@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import random
+import time
 
 verbose = 0
 status = None
@@ -35,7 +36,8 @@ class Status:
         self.attempts = attempts
         self.tenure = tenure
         '''max number of events that participants would like to attend'''
-        self.emax = [sum(ppp for ppp in pp) for pp in p]
+        #self.emax = [sum(ppp for ppp in pp) for pp in p] # or simply m
+        self.emax = [len(p[0])] * len(p)
         '''min number of events that participants would like to attend'''
         self.emin = [0] * len(p)
         '''close friends' adjacency matrix'''
@@ -54,6 +56,8 @@ class Status:
         self.cmin = [0] * len(p[0])
         '''dictionary of previously computed participations'''
         self.chosen_ones = {}
+        '''setting default time allowed for search'''
+        self.allowed_time = 60
 
     '''
         Sets the age vector of participants.
@@ -185,7 +189,6 @@ def extract_tabu_elements(s_move):
         _d: the exclusion matrix
     output:
         a consistent solution
-    ! FIXME now 0 <= p < 2: ordering preferences
     ! FIXME emax
 '''
 def initial_solution_bottom_up(p, c, d):
@@ -200,7 +203,7 @@ def initial_solution_bottom_up(p, c, d):
         while 1:
             row = random.randint(0, len(s) - 1)
             col = random.randint(0, len(s[0]) - 1)
-            if p[row][col] == 1 and s[row][col] == 0:
+            if p[row][col] >= 1 and s[row][col] == 0:
                 break
         attempts -= 1
         if c[col] == 0 or capacity[col] < c[col]:
@@ -220,7 +223,6 @@ def initial_solution_bottom_up(p, c, d):
         _d: the exclusion matrix
     output:
         a consistent solution
-    ! FIXME now 0 <= p < 2: ordering preferences
     ! FIXME emax
 '''
 def initial_solution_top_down(p, c, d):
@@ -228,7 +230,15 @@ def initial_solution_top_down(p, c, d):
     1. store indices where p[i][j] = 1
     2. remove where max capacity attained, randomly until consistent
     3. make it d-consistent randomly for each line'''
-    s = [ss[:] for ss in p]
+    s = []
+    for pp in p:
+        ss = []
+        for ppp in pp:
+            if ppp >= 1:
+                ss.append(1)
+            else:
+                ss.append(0)
+        s.append(ss)
     '''making it consistent against max capacity vector'''
     '''TODO: against emax instead of c'''
     for j in range(len(s[0])):
@@ -238,7 +248,7 @@ def initial_solution_top_down(p, c, d):
             capacity += s[i][j]
             indices.append(i)
         '''TODO: shuffle indices instead of undefinitely looping!'''
-        while capacity > c[j]:
+        while c[j] > 0 and capacity > c[j]:
             r = random.randint(0, len(indices) - 1)
             if s[r][j] == 1:
                 capacity -= 1
@@ -330,7 +340,6 @@ def is_legal_not_tabu_aspiration(s_neighbor, tabu):
         _s: a solution
     output:
         a set of (neighbor, move) pairs
-    ! FIXME - 0 <= p < 2 now!
 '''
 def neighborhood_all(s):
     assert len(s) == len(status.p)
@@ -347,7 +356,7 @@ def neighborhood_all(s):
                     print("REMOVE participant {} from event {}".format(i, j))
                 yield (s_, ('remove', (i, j)))
         for j in range(len(status.p[i])):
-            if status.p[i][j] == 1 and s[i][j] == 0:
+            if status.p[i][j] >= 1 and s[i][j] == 0:
                 if len(indices) > 0:
                     c_consistency_checked = 0
                     c_consistent = 0
@@ -370,7 +379,7 @@ def neighborhood_all(s):
                                 yield (s_, ('move', (i, k, j)))
                             '''SWAP'''
                             for ii in range(len(status.p)):
-                                if ii != i and status.p[ii][k] == 1 and s[ii][k] == 0 and s[ii][j] == 1:
+                                if ii != i and status.p[ii][k] >= 1 and s[ii][k] == 0 and s[ii][j] == 1:
                                     s_ = [ss[:] for ss in s]
                                     s_[i][j] = 1
                                     s_[i][k] = 0
@@ -495,13 +504,13 @@ def objective_compound(s):
     score = Score(objective_compound_incr)
     score.subscores = []
     subscore = objective_max(s)
-    subscore.weight = 0.25
+    subscore.weight = 0.5
     score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)
-    subscore = objective_emin(s)
+    '''subscore = objective_emin(s)
     subscore.weight = 0.25
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)
+    score.subscores.append(subscore)'''
     '''! FIXME objective_emin and objective_cmin not consistent neither!'''
     '''! FIXME objective_median_age and objective_sex_ratio not consistent'''
     '''subscore = objective_median_age(s)
@@ -510,12 +519,12 @@ def objective_compound(s):
     subscore = objective_sex_ratio(s)
     score.total += subscore.total
     score.subscores.append(subscore)'''
-    subscore = objective_cmin(s)
+    '''subscore = objective_cmin(s)
     subscore.weight = 0.25
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)
+    score.subscores.append(subscore)'''
     subscore = objective_friends(s)
-    subscore.weight = 0.25
+    subscore.weight = 0.5
     score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)
     print("s_init compounded score: {}".format(score.total))
@@ -715,8 +724,9 @@ def objective_friends_incr(s, score, move):
 '''
 def objective_max(s):
     score = Score(objective_max_incr)
-    for ss in s:
-        score.total += sum(sss for sss in ss)
+    for i in range(len(s)):
+        for j in range(len(s[i])):
+            score.total += (s[i][j] * status.p[i][j])
     return score
 
 '''
@@ -1015,6 +1025,7 @@ def selection_first_improvement(s_legal):
         the best solution found after _attemps iterations and its score as a pair
 '''
 def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
+    start = time.time()
     status.objective = objective
     status.s_star = s
     status.s_star_score = globals()[objective.__name__.replace('_incr', '')](status.s_star)
@@ -1022,7 +1033,7 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
     status.s_score = status.s_star_score
     tabu = []
     improving = status.improving
-    while status.attempts and improving:
+    while status.attempts and improving and time.time() - start < status.allowed_time:
         s_legal = [s_neighbor for s_neighbor in neighborhood(status.s_) if is_legal(s_neighbor, tabu)]
         '''all neighbors contain tabu-active elements'''
         '''TODO: get all the oldest neighbors out of tabu list'''
