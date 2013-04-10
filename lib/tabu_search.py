@@ -329,6 +329,32 @@ def is_legal_not_tabu_aspiration(s_neighbor, tabu):
     return is_legal_not_tabu(s_neighbor, tabu) or status.objective(status.s_, status.s_score, s_neighbor[1]).total > status.s_star_score.total
 
 '''
+    Greedy neighborhood generator.
+    Generates the neighbors of a given solution, by strictly increasing the number of attendances.
+    input:
+        _s: a solution
+    output:
+        a set of (neighbor, operation) pairs
+'''
+def neighborhood_add(s):
+    for i in range(len(status.p)):
+        indices = []
+        for j in range(len(status.p[i])):
+            if s[i][j] == 1:
+                indices.append(j)
+        for j in range(len(status.p[i])):
+            if status.p[i][j] >= 1 and s[i][j] == 0:
+                if len(indices) == status.emax[i]:
+                    continue
+                if is_c_consistent(j, s) and is_d_consistent(j, indices):
+                    '''ADD'''
+                    s_ = [ss[:] for ss in s]
+                    s_[i][j] = 1
+                    if verbose:
+                        print("ADD participant {} to event {}".format(i, j))
+                    yield (s_, ('add', (i, j)))
+
+'''
     Neighborhood generator.
     Generates the neighbors of a given solution, using the following operations:
         add - adding a participant to an event;
@@ -347,14 +373,15 @@ def neighborhood_all(s):
     for i in range(len(status.p)):
         indices = []
         for j in range(len(s[i])):
-            if s[i][j] == 1 and (i,j) not in status.chosen_ones:
+            if s[i][j] == 1:
                 indices.append(j)
-                '''REMOVE'''
-                s_ = [ss[:] for ss in s]
-                s_[i][j] = 0
-                if verbose:
-                    print("REMOVE participant {} from event {}".format(i, j))
-                yield (s_, ('remove', (i, j)))
+                if (i, j) not in status.chosen_ones:
+                    '''REMOVE'''
+                    s_ = [ss[:] for ss in s]
+                    s_[i][j] = 0
+                    if verbose:
+                        print("REMOVE participant {} from event {}".format(i, j))
+                    yield (s_, ('remove', (i, j)))
         for j in range(len(status.p[i])):
             if status.p[i][j] >= 1 and s[i][j] == 0:
                 if len(indices) > 0:
