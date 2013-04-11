@@ -36,7 +36,6 @@ class Status:
         self.attempts = attempts
         self.tenure = tenure
         '''max number of events that participants would like to attend'''
-        #self.emax = [sum(ppp for ppp in pp) for pp in p] # or simply m
         self.emax = [len(p[0])] * len(p)
         '''min number of events that participants would like to attend'''
         self.emin = [0] * len(p)
@@ -189,14 +188,17 @@ def extract_tabu_elements(s_move):
         _d: the exclusion matrix
     output:
         a consistent solution
-    ! FIXME emax
+    ! FIXME emax, chosen_ones
 '''
-def initial_solution_bottom_up(p, c, d):
+def initial_solution_bottom_up_(p, c, d):
     '''TODO: check if it's full instead of limited number of attempts'''
     '''TODO: against emax instead of c'''
     s = [[0] * len(p[0]) for pp in p]
     capacity = [0] * len(c)
-    d_indices = [[i for i in range(len(j)) if j[i] == 1] for j in d]
+    for (i, j) in status.chosen_ones:
+        s[i][j] = 1
+        capacity[j] += 1
+    d_indices = [[i for i in range(len(dd)) if dd[i] == 1] for dd in d]
     attempts = 5
     while attempts > 0:
         col, row = -1, -1
@@ -214,6 +216,37 @@ def initial_solution_bottom_up(p, c, d):
                 attempts = 5
     return s
 
+def initial_solution_bottom_up(p, c, d):
+    s = [[0] * len(pp) for pp in p]
+    d_indices = [[i for i in range(len(dd)) if dd[i] == 1] for dd in d]
+    s_indices = []
+    p_values = []
+    for i in range(len(p)):
+        s_indices.append([])
+        for j in range(len(p[i])):
+            if p[i][j] >= 1:
+                p_values.append((i, j))
+    row_capacity = [0] * len(p)
+    col_capacity = [0] * len(c)
+    # FIXME: chosen_ones should be in s!
+    for k, v in status.chosen_ones.items():
+        i, j = k
+        s[i][j] = 1
+        p_values.remove((i, j))
+        s_indices[i].append(j)
+        row_capacity[i] += 1
+        col_capacity[j] += 1
+    while len(p_values) > 0:
+        i, j = p_values[random.randint(0, len(p_values) - 1)]
+        p_values.remove((i, j))
+        if row_capacity[i] == status.emax[i] or (c[j] != 0 and col_capacity[j] == c[j]):
+            continue
+        if len(set(s_indices[i]) & set(d_indices[j])) == 0:
+            s[i][j] = 1
+            row_capacity[i] += 1
+            col_capacity[j] += 1
+            s_indices[i].append(j)
+    return s
 
 '''
     Builds an initial solution descending from preferences' matrix.
@@ -223,7 +256,7 @@ def initial_solution_bottom_up(p, c, d):
         _d: the exclusion matrix
     output:
         a consistent solution
-    ! FIXME emax
+    ! FIXME emax, chosen_ones
 '''
 def initial_solution_top_down(p, c, d):
     '''TODO: implement new algorithm

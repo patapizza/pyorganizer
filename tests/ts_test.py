@@ -76,9 +76,25 @@ class TSTest(unittest.TestCase):
         self.assertEqual(1, objective_friends([[1, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 1], [0, 0, 0]]))
         self.assertEqual(1, objective_friends_incr([[1, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 1], [0, 0, 0]], 1, ('swap', (0, 3, 1, 2))))
 
+    def test_init_bottom_up(self):
+        n = 6
+        m = 4
+        gen = Generator(n, m)
+        status = Status(gen.p, gen.c, gen.d)
+        status.set_emax(gen.emax)
+        status.chosen_ones = gen.chosen_ones
+        status.set_status()
+        print("p: {}".format(gen.p))
+        print("d: {}".format(gen.d))
+        print("c: {}".format(gen.c))
+        print("emax: {}".format(gen.emax))
+        print("chosen_ones: {}".format(gen.chosen_ones))
+        print("s: {}".format(initial_solution_top_down(gen.p, gen.c, gen.d)))
+
+    @unittest.skip("later")
     def test_selection(self):
-        n = 10
-        m = 10
+        n = 100
+        m = 100
         gen = Generator(n, m)
         init = initial_solution_top_down(gen.p, gen.c, gen.d)
         results = {}
@@ -93,13 +109,19 @@ class TSTest(unittest.TestCase):
                     print("Tenure value: {}".format(tenure))
                     for aspiration in l_function:
                         print("Legal function: {}".format(aspiration))
+                        # todo: status.n and status.m instead of len(s[0]) for readability
                         status = Status(gen.p, gen.c, gen.d, attempt, tenure)
                         status.improving = 5 # ?
                         status.delta = 50 # ?
                         status.set_cf(gen.cf)
                         status.set_emin(gen.emin)
+                        status.set_emax(gen.emax)
                         status.set_age(gen.age)
                         status.set_mage(gen.mage)
+                        status.set_male(gen.male)
+                        status.set_sratio(gen.sratio)
+                        status.set_cmin(gen.cmin)
+                        status.allowed_time = 60
                         status.set_status()
                         start = time.time()
                         s, score = tabu_search(init, objective_compound_incr, neighborhood_all, aspiration, selection_first_improvement)
