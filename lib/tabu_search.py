@@ -228,8 +228,7 @@ def initial_solution_bottom_up(p, c, d):
 def initial_solution_confirmed_only():
     s = [[0] * len(p) for p in status.p]
     for k, v in status.chosen_ones.items():
-        i, j = k
-        s[i][j] = 1
+        s[k[0]][k[1]] = 1
     return s
 
 '''
@@ -1039,16 +1038,21 @@ def selection_best_k(s_legal):
         _s_legal: a list of (solution, move) pairs
     output:
         the first pair among _s_legal for which the objective outperfoms status.s_score, paired with its score (Score object)
-        if none, the first pair ! FIXME: should return the best one in that case
+        if none, same as selection_best
 '''
 def selection_first_improvement(s_legal):
-    s_star = s_legal[0]
+    s_star = [s_legal[0]]
     s_star_score = status.objective(status.s_, status.s_score, s_legal[0][1])
     for s in s_legal:
         score = status.objective(status.s_, status.s_score, s[1])
         if score.total > status.s_score.total:
             return (score, s)
-    return (s_star_score, s_star)
+        if score.total == s_star_score.total:
+            s_star.append(s)
+        elif score.total > s_star_score.total:
+            s_star = [s]
+            s_star_score = score
+    return (s_star_score, s_star[random.randint(0, len(s_star) - 1)])
 
 '''
     Performs a tabu search.
