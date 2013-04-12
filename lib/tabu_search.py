@@ -221,6 +221,18 @@ def initial_solution_bottom_up(p, c, d):
     return s
 
 '''
+    Builds an initial solution with previously confirmed participants only.
+    output:
+        a consistent solution
+'''
+def initial_solution_confirmed_only():
+    s = [[0] * len(p) for p in status.p]
+    for k, v in status.chosen_ones.items():
+        i, j = k
+        s[i][j] = 1
+    return s
+
+'''
     Builds an initial solution descending from preferences' matrix.
     input:
         _p: the preferences' matrix

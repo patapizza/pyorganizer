@@ -91,6 +91,7 @@ class TSTest(unittest.TestCase):
         print("chosen_ones: {}".format(gen.chosen_ones))
         print("s_bottom_up: {}".format(initial_solution_bottom_up(gen.p, gen.c, gen.d)))
         print("s_top_down: {}".format(initial_solution_top_down(gen.p, gen.c, gen.d)))
+        print("s_confirmed: {}".format(initial_solution_confirmed_only()))
 
     @unittest.skip("later")
     def test_selection(self):
