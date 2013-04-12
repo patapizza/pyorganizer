@@ -188,34 +188,7 @@ def extract_tabu_elements(s_move):
         _d: the exclusion matrix
     output:
         a consistent solution
-    ! FIXME emax, chosen_ones
 '''
-def initial_solution_bottom_up_(p, c, d):
-    '''TODO: check if it's full instead of limited number of attempts'''
-    '''TODO: against emax instead of c'''
-    s = [[0] * len(p[0]) for pp in p]
-    capacity = [0] * len(c)
-    for (i, j) in status.chosen_ones:
-        s[i][j] = 1
-        capacity[j] += 1
-    d_indices = [[i for i in range(len(dd)) if dd[i] == 1] for dd in d]
-    attempts = 5
-    while attempts > 0:
-        col, row = -1, -1
-        while 1:
-            row = random.randint(0, len(s) - 1)
-            col = random.randint(0, len(s[0]) - 1)
-            if p[row][col] >= 1 and s[row][col] == 0:
-                break
-        attempts -= 1
-        if c[col] == 0 or capacity[col] < c[col]:
-            indices = [j for j in range(len(s[row])) if s[row][j] == 1]
-            if len(set(indices) & set(d_indices[col])) == 0:
-                s[row][col] = 1
-                capacity[col] += 1
-                attempts = 5
-    return s
-
 def initial_solution_bottom_up(p, c, d):
     s = [[0] * len(pp) for pp in p]
     d_indices = [[i for i in range(len(dd)) if dd[i] == 1] for dd in d]
@@ -228,7 +201,6 @@ def initial_solution_bottom_up(p, c, d):
                 p_values.append((i, j))
     row_capacity = [0] * len(p)
     col_capacity = [0] * len(c)
-    # FIXME: chosen_ones should be in s!
     for k, v in status.chosen_ones.items():
         i, j = k
         s[i][j] = 1
@@ -256,46 +228,39 @@ def initial_solution_bottom_up(p, c, d):
         _d: the exclusion matrix
     output:
         a consistent solution
-    ! FIXME emax, chosen_ones
 '''
+
 def initial_solution_top_down(p, c, d):
-    '''TODO: implement new algorithm
-    1. store indices where p[i][j] = 1
-    2. remove where max capacity attained, randomly until consistent
-    3. make it d-consistent randomly for each line'''
     s = []
-    for pp in p:
+    p_values = []
+    s_indices = []
+    row_capacity = [0] * len(p)
+    col_capacity = [0] * len(c)
+    for i in range(len(p)):
         ss = []
-        for ppp in pp:
-            if ppp >= 1:
+        ss_ = []
+        for j in range(len(p[i])):
+            if p[i][j] >= 1:
                 ss.append(1)
+                p_values.append((i, j))
+                ss_.append(j)
+                row_capacity[i] += 1
+                col_capacity[j] += 1
             else:
                 ss.append(0)
         s.append(ss)
-    '''making it consistent against max capacity vector'''
-    '''TODO: against emax instead of c'''
-    for j in range(len(s[0])):
-        capacity = 0
-        indices = []
-        for i in range(len(s)):
-            capacity += s[i][j]
-            indices.append(i)
-        '''TODO: shuffle indices instead of undefinitely looping!'''
-        while c[j] > 0 and capacity > c[j]:
-            r = random.randint(0, len(indices) - 1)
-            if s[r][j] == 1:
-                capacity -= 1
-                s[r][j] = 0
-    '''making it consistent against exclusion matrix'''
-    d_indices = [[i for i in range(len(j)) if j[i] == 1] for j in d]
-    for i in range(len(s)):
-        indices = [j for j in range(len(s[i])) if s[i][j] == 1]
-        for k in indices:
-            inter = set(indices) & set(d_indices[k])
-            while len(inter) > 1:
-                event = inter.pop()
-                s[i][event] = 0
-                indices.remove(event)
+        s_indices.append(ss_)
+    d_indices = [[i for i in range(len(dd)) if dd[i] == 1] for dd in d]
+    while len(p_values) > 0:
+        i, j = p_values[random.randint(0, len(p_values) - 1)]
+        p_values.remove((i, j))
+        if (i, j) in status.chosen_ones:
+            continue
+        if row_capacity[i] > status.emax[i] or (c[j] != 0 and col_capacity[j] > c[j]) or len(set(s_indices[i]) & set(d_indices[j])) > 0:
+            s[i][j] = 0
+            row_capacity[i] -= 1
+            col_capacity[j] -= 1
+            s_indices[i].remove(j)
     return s
 
 '''

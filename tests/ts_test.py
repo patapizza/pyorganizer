@@ -76,7 +76,7 @@ class TSTest(unittest.TestCase):
         self.assertEqual(1, objective_friends([[1, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 1], [0, 0, 0]]))
         self.assertEqual(1, objective_friends_incr([[1, 1, 0], [0, 0, 1], [1, 0, 0], [0, 0, 1], [0, 0, 0]], 1, ('swap', (0, 3, 1, 2))))
 
-    def test_init_bottom_up(self):
+    def test_init_fun(self):
         n = 6
         m = 4
         gen = Generator(n, m)
@@ -89,7 +89,8 @@ class TSTest(unittest.TestCase):
         print("c: {}".format(gen.c))
         print("emax: {}".format(gen.emax))
         print("chosen_ones: {}".format(gen.chosen_ones))
-        print("s: {}".format(initial_solution_top_down(gen.p, gen.c, gen.d)))
+        print("s_bottom_up: {}".format(initial_solution_bottom_up(gen.p, gen.c, gen.d)))
+        print("s_top_down: {}".format(initial_solution_top_down(gen.p, gen.c, gen.d)))
 
     @unittest.skip("later")
     def test_selection(self):
