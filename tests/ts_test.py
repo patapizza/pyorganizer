@@ -93,12 +93,16 @@ class TSTest(unittest.TestCase):
         print("s_top_down: {}".format(initial_solution_top_down(gen.p, gen.c, gen.d)))
         print("s_confirmed: {}".format(initial_solution_confirmed_only()))
 
-    @unittest.skip("later")
+    #@unittest.skip("later")
     def test_selection(self):
         n = 100
         m = 100
         gen = Generator(n, m)
-        init = initial_solution_top_down(gen.p, gen.c, gen.d)
+        status = Status(gen.p, gen.c, gen.d)
+        status.set_emax(gen.emax)
+        status.chosen_ones = gen.chosen_ones
+        status.set_status()
+        init = initial_solution_bottom_up(gen.p, gen.c, gen.d)
         results = {}
         loops = 50
         for i in range(loops):
@@ -111,8 +115,8 @@ class TSTest(unittest.TestCase):
                     print("Tenure value: {}".format(tenure))
                     for aspiration in l_function:
                         print("Legal function: {}".format(aspiration))
-                        # todo: status.n and status.m instead of len(s[0]) for readability
-                        status = Status(gen.p, gen.c, gen.d, attempt, tenure)
+                        status.attempts = attempt
+                        status.tenure = tenure
                         status.improving = 5 # ?
                         status.delta = 50 # ?
                         status.set_cf(gen.cf)
@@ -124,7 +128,6 @@ class TSTest(unittest.TestCase):
                         status.set_sratio(gen.sratio)
                         status.set_cmin(gen.cmin)
                         status.allowed_time = 60
-                        status.set_status()
                         start = time.time()
                         s, score = tabu_search(init, objective_compound_incr, neighborhood_all, aspiration, selection_first_improvement)
                         elapsed = time.time() - start

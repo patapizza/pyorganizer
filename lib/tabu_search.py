@@ -240,7 +240,6 @@ def initial_solution_confirmed_only():
     output:
         a consistent solution
 '''
-
 def initial_solution_top_down(p, c, d):
     s = []
     p_values = []
@@ -1075,14 +1074,21 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
     tabu = []
     improving = status.improving
     while status.attempts and improving and time.time() - start < status.allowed_time:
-        s_legal = [s_neighbor for s_neighbor in neighborhood(status.s_) if is_legal(s_neighbor, tabu)]
-        '''all neighbors contain tabu-active elements'''
-        '''TODO: get all the oldest neighbors out of tabu list'''
-        '''extension/discussion: see JB mails as of Fri 04/05'''
+        s_neighbors = [s_neighbor for s_neighbor in neighborhood(status.s_)]
+        s_legal = [s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu)]
         if len(s_legal) == 0:
+            '''
+                All neighbors contain tabu-active elements.
+                Let's get oldest tabu attributes out of _tabu and readapt age.
+                This should happen at most once for each _attempts value because each user indice is present within some move.
+            '''
+            aging = status.tenure + status.attempts - tabu[0][0]
+            tabu_ = []
+            for tabu_element in tabu:
+                tabu_.append((tabu_element[0] + aging, tabu_element[1]))
+            tabu = tabu_
             expire_features(tabu, status.attempts)
-            status.attempts -= 1
-            continue
+            s_legal = [s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu)]
         status.s_score, s_ = selection(s_legal)
         status.s_, s_move = s_
         if status.s_score.total > status.s_star_score.total:
