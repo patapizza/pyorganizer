@@ -168,12 +168,13 @@ if __name__ == "__main__":
         '''launching search'''
         if verbose:
             print("Launching {} search... ({} seconds)".format(("light" if len(declines) > 0 else "heavy"), status.allowed_time))
-        init = initial_solution_top_down(status.p, status.c, status.d)
+        init = initial_solution_bottom_up(status.p, status.c, status.d)
         neighborhood = neighborhood_all
         if len(declines) > 0:
             neighborhood = neighborhood_add
-            status.attempts = len(declines) * 2
+            status.attempts = len(declines) * len(events)
             status.tenure = 0
+            init = initial_solution_confirmed_only()
         s, score = tabu_search(init, objective_compound_incr, neighborhood, is_legal_not_tabu, selection_best_k)
         print("Solution score: {}".format(score))
         print("Solution: {}".format(s))
