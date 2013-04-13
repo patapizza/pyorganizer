@@ -17,7 +17,7 @@ class Score:
     def __init__(self, objective, total = 0, params = []):
         self.objective = objective
         self.total = total
-        self.params = params
+        self.params = [param for param in params]
 
 class Status:
 
@@ -538,14 +538,14 @@ def objective_cmin_incr(s, score, move):
 def objective_compound(s):
     score = Score(objective_compound_incr)
     score.subscores = []
-    subscore = objective_max(s)
+    '''subscore = objective_max(s)
     subscore.weight = 0.5
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)
-    '''subscore = objective_emin(s)
-    subscore.weight = 0.25
-    score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)'''
+    subscore = objective_emin(s)
+    subscore.weight = 1
+    score.total += (subscore.weight * subscore.total)
+    score.subscores.append(subscore)
     '''! FIXME objective_emin and objective_cmin not consistent neither!'''
     '''! FIXME objective_median_age and objective_sex_ratio not consistent'''
     '''subscore = objective_median_age(s)
@@ -558,10 +558,10 @@ def objective_compound(s):
     subscore.weight = 0.25
     score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)'''
-    subscore = objective_friends(s)
+    '''subscore = objective_friends(s)
     subscore.weight = 0.5
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)
+    score.subscores.append(subscore)'''
     print("s_init compounded score: {}".format(score.total))
     return score
 
@@ -615,69 +615,43 @@ def objective_emin(s):
 '''
 def objective_emin_incr(s, score, move):
     score_ = Score(score.objective, score.total, score.params)
-    #print("{} {}".format(score_.total, objective_emin(s).total))
-    #print(move)
     if move[0] == 'add':
         '''
             ('add', (participant i, event j))
         '''
-        print("ADD-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
         a = score_.params[move[1][0]]
-        new_a = (a + 1 / status.emin[move[1][0]]) if status.emin[move[1][0]] > 0 else 1
-        score_.total = score_.total - min(1, a) + min(1, new_a)
-        score_.params[move[1][0]] = new_a 
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][1]] = 1
-        print("ADD-- AFTER: {} ({})".format(objective_emin(s_).total, score_.total))
+        new_a = (a + (1.0 / status.emin[move[1][0]])) if status.emin[move[1][0]] > 0 else 1
+        score_.total += (min(1, new_a) - min(1, a))
+        score_.params[move[1][0]] = new_a
     elif move[0] == 'remove':
         '''
             ('remove', (participant i, event j))
         '''
-        print("REMOVE-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
         a = score_.params[move[1][0]]
-        new_a = (a - 1 / status.emin[move[1][0]]) if status.emin[move[1][0]] > 0 else 1
-        score_.total = score_.total - min(1, a) + min(1, new_a)
+        new_a = (a - (1.0 / status.emin[move[1][0]])) if status.emin[move[1][0]] > 0 else 1
+        score_.total += (min(1, new_a) - min(1, a))
         score_.params[move[1][0]] = new_a
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][1]] = 0
-        print("REMOVE-- AFTER: {} ({})".format(objective_emin(s_).total, score_.total))
     elif move[0] == 'move':
         '''
             ('move', (participant i, event j1, event j2))
             -> ('remove', (i, j1)) + ('add', (i, j2))
         '''
-        print("MOVE-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
-        #print("MOVE-- before remove: {}".format(score_.total))
         score_ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][1])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][1]] = 0
-        print("MOVE-- score after remove: {} ({})".format(score_.total, objective_emin(s_).total))
-        score_ = objective_emin_incr(s_, score_, ('add', (move[1][0], move[1][2])))
-        s_[move[1][0]][move[1][2]] = 1
-        #print("MOVE-- score after add: {}".format(score_.total))
-        print("MOVE-- AFTER: {} ({})".format(objective_emin(s_).total, score_.total))
+        score_ = objective_emin_incr(s, score_, ('add', (move[1][0], move[1][2])))
     elif move[0] == 'replace':
         '''
             ('replace', (participant i1, participant i2, event j))
             -> ('remove', (i1, j)) + ('add', (i2, j))
         '''
-        print("REPLACE-- BEFORE: {} ({})".format(objective_emin(s).total, score_.total))
         score_ = objective_emin_incr(s, score_, ('remove', (move[1][0], move[1][2])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][2]] = 0
-        score_ = objective_emin_incr(s_, score_, ('add', (move[1][1], move[1][2])))
-        s_[move[1][1]][move[1][2]] = 1
-        print("REPLACE-- AFTER: {} ({})".format(objective_emin(s_).total, score_.total))
+        score_ = objective_emin_incr(s, score_, ('add', (move[1][1], move[1][2])))
     elif move[0] == 'swap':
         '''
             ('swap', (participant i1, participant i2, event j1, event j2))
             -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
         '''
         score_ = objective_emin_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][2]] = 0
-        s_[move[1][0]][move[1][3]] = 1
-        score_ = objective_emin_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
+        score_ = objective_emin_incr(s, score_, ('move', (move[1][1], move[1][3], move[1][2])))
     return score_
 
 '''
@@ -1003,16 +977,16 @@ def objective_sex_ratio_incr(s, score, move):
         a pair among _s_legal for which the objective is maximum, uniformly randomly, paired with its score (Score object)
 '''
 def selection_best(s_legal):
-    s_star = [s_legal[0]]
-    s_star_score = status.objective(status.s_, status.s_score, s_legal[0][1])
+    s_stars = []
+    s_star_score = -1
     for s in s_legal:
         score = status.objective(status.s_, status.s_score, s[1])
-        if score.total == s_star_score.total:
-            s_star.append(s)
-        elif score.total > s_star_score.total:
-            s_star = [s]
-            s_star_score = score
-    return (s_star_score, s_star[random.randint(0, len(s_star) - 1)])
+        if score.total == s_star_score:
+            s_stars.append((score, s))
+        elif score.total > s_star_score:
+            s_stars = [(score, s)]
+            s_star_score = score.total
+    return s_stars[random.randint(0, len(s_stars) - 1)]
 
 '''
     Selection function of the Best-K-Neighbors heuristic.
@@ -1040,18 +1014,18 @@ def selection_best_k(s_legal):
         if none, same as selection_best
 '''
 def selection_first_improvement(s_legal):
-    s_star = [s_legal[0]]
-    s_star_score = status.objective(status.s_, status.s_score, s_legal[0][1])
+    s_stars = []
+    s_star_score = -1
     for s in s_legal:
         score = status.objective(status.s_, status.s_score, s[1])
         if score.total > status.s_score.total:
             return (score, s)
-        if score.total == s_star_score.total:
-            s_star.append(s)
-        elif score.total > s_star_score.total:
-            s_star = [s]
-            s_star_score = score
-    return (s_star_score, s_star[random.randint(0, len(s_star) - 1)])
+        if score.total == s_star_score:
+            s_stars.append((score, s))
+        elif score.total > s_star_score:
+            s_stars = [(score, s)]
+            s_star_score = score.total
+    return s_stars[random.randint(0, len(s_stars) - 1)]
 
 '''
     Performs a tabu search.
@@ -1081,6 +1055,7 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
                 All neighbors contain tabu-active elements.
                 Let's get oldest tabu attributes out of _tabu and readapt age.
                 This should happen at most once for each _attempts value because each user indice is present within some move.
+                FIXME: sometimes, len(s_legal) == 0 afterwards! It happens when the user indice of the oldest is present twice in tabu...
             '''
             aging = status.tenure + status.attempts - tabu[0][0]
             tabu_ = []
