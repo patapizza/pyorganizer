@@ -529,32 +529,31 @@ def objective_cmin_incr(s, score, move):
 def objective_compound(s):
     score = Score(objective_compound_incr)
     score.subscores = []
-    '''subscore = objective_max(s)
-    subscore.weight = 0.5
+    subscore = objective_max(s)
+    subscore.weight = 0.4
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)'''
-    '''subscore = objective_emin(s)
-    subscore.weight = 1
+    score.subscores.append(subscore)
+    subscore = objective_emin(s)
+    subscore.weight = 0.1
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)'''
-    '''! FIXME objective_emin and objective_cmin not consistent neither!'''
-    '''! FIXME objective_median_age and objective_sex_ratio not consistent'''
-    '''subscore = objective_median_age(s)
-    score.total += subscore.total
-    score.subscores.append(subscore)'''
-    subscore = objective_sex_ratio(s)
-    subscore.weight = 1
+    score.subscores.append(subscore)
+    subscore = objective_median_age(s)
+    subscore.weight = 0.1
     score.total += subscore.total
     score.subscores.append(subscore)
-    '''subscore = objective_cmin(s)
-    subscore.weight = 1
+    subscore = objective_sex_ratio(s)
+    subscore.weight = 0.1
+    score.total += subscore.total
+    score.subscores.append(subscore)
+    subscore = objective_cmin(s)
+    subscore.weight = 0.1
     score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)
     subscore = objective_friends(s)
-    subscore.weight = 0.5
+    subscore.weight = 0.2
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)'''
-    print("s_init compounded score: {}".format(score.total))
+    score.subscores.append(subscore)
+    print("s_init compound score: {}".format(score.total))
     return score
 
 
@@ -808,65 +807,49 @@ def objective_median_age(s):
 '''
 def objective_median_age_incr(s, score, move):
     score_ = Score(score.objective, score.total, score.params)
-    #print("{} : {}".format(score_.total, objective_median_age(s).total))
-    print(move)
     if move[0] == 'add':
         '''
             ('add', (participant i, event j))
         '''
         if status.age[move[1][0]] > 0:
             a, b = score_.params[move[1][1]]
-            print("(a,b) -> ({},{})".format(a, b))
             new_a = a + status.age[move[1][0]]
             new_b = b + 1
-            print("(new_a,new_b) -> ({},{})".format(new_a, new_b))
             score_.params[move[1][1]] = [new_a, new_b]
             if status.mage[move[1][1]] > 0:
-                score_.total = score_.total + (abs(a / b - status.mage[move[1][1]]) if b > 0 else status.mage[move[1][1]]) - abs(new_a / new_b - status.mage[move[1][1]])
+                score_.total += ((abs(a / b - status.mage[move[1][1]]) if b > 0 else status.mage[move[1][1]]) - abs(new_a / new_b - status.mage[move[1][1]]))
     elif move[0] == 'remove':
         '''
             ('remove', (participant i, event j))
         '''
         if status.age[move[1][0]] > 0:
             a, b = score_.params[move[1][1]]
-            print("(a,b) -> ({},{})".format(a, b))
             new_a = a - status.age[move[1][0]]
-            if b < 1:
-                print("wtf {} {} {}".format(a, b, s[move[1][0]][move[1][1]]))
-            new_b = b - 1 if b > 0 else 0 # FIXME shouldn't happen
-            print("(new_a,new_b) -> ({},{})".format(new_a, new_b))
+            new_b = b - 1
             score_.params[move[1][1]] = [new_a, new_b]
             if status.mage[move[1][1]] > 0:
-                score_.total = score_.total + (abs(a / b - status.mage[move[1][1]]) if b > 0 else status.mage[move[1][1]]) - (abs(new_a / new_b - status.mage[move[1][1]]) if new_b > 0 else status.mage[move[1][1]])
+                score_.total += ((abs(a / b - status.mage[move[1][1]]) if b > 0 else status.mage[move[1][1]]) - (abs(new_a / new_b - status.mage[move[1][1]]) if new_b > 0 else status.mage[move[1][1]]))
     elif move[0] == 'move':
-        print("x {} {}".format(score_.params[move[1][1]][0], score_.params[move[1][1]][1]))
         '''
             ('move', (participant i, event j1, event j2))
             -> ('remove', (i, j1)) + ('add', (i, j2))
         '''
         score_ = objective_median_age_incr(s, score_, ('remove', (move[1][0], move[1][1])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][1]] = 0
-        score_ = objective_median_age_incr(s_, score_, ('add', (move[1][0], move[1][2])))
+        score_ = objective_median_age_incr(s, score_, ('add', (move[1][0], move[1][2])))
     elif move[0] == 'replace':
         '''
             ('replace', (participant i1, participant i2, event j))
             -> ('remove', (i1, j)) + ('add', (i2, j))
         '''
         score_ = objective_median_age_incr(s, score_, ('remove', (move[1][0], move[1][2])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][2]] = 0
-        score_ = objective_median_age_incr(s_, score_, ('add', (move[1][1], move[1][2])))
+        score_ = objective_median_age_incr(s, score_, ('add', (move[1][1], move[1][2])))
     elif move[0] == 'swap':
         '''
             ('swap', (participant i1, participant i2, event j1, event j2))
             -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
         '''
         score_ = objective_median_age_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][2]] = 0
-        s_[move[1][0]][move[1][3]] = 1
-        score_ = objective_median_age_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
+        score_ = objective_median_age_incr(s, score_, ('move', (move[1][1], move[1][3], move[1][2])))
     return score_
 
 '''
