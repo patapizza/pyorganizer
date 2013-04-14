@@ -480,15 +480,13 @@ def objective_cmin(s):
 '''
 def objective_cmin_incr(s, score, move):
     score_ = Score(score.objective, score.total, score.params)
-    #print("{} {}".format(score_.total, objective_cmin(s).total))
-    #print(move)
     if move[0] == 'add':
         '''
             ('add', (participant i, event j))
         '''
         a = score_.params[move[1][1]]
         new_a = (a + 1 / status.cmin[move[1][1]]) if status.cmin[move[1][1]] > 0 else 1
-        score_.total = score_.total - min(1, a) + min(1, new_a)
+        score_.total += (min(1, new_a) - min(1, a))
         score_.params[move[1][1]] = new_a
     elif move[0] == 'remove':
         '''
@@ -496,7 +494,7 @@ def objective_cmin_incr(s, score, move):
         '''
         a = score_.params[move[1][1]]
         new_a = (a - 1 / status.cmin[move[1][1]]) if status.cmin[move[1][1]] > 0 else 1
-        score_.total = score_.total - min(1, a) + min(1, new_a)
+        score_.total += (min(1, new_a) - min(1, a))
         score_.params[move[1][1]] = new_a
     elif move[0] == 'move':
         '''
@@ -504,28 +502,21 @@ def objective_cmin_incr(s, score, move):
             -> ('remove', (i, j1)) + ('add', (i, j2))
         '''
         score_ = objective_cmin_incr(s, score_, ('remove', (move[1][0], move[1][1])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][1]] = 0
-        score_ = objective_cmin_incr(s_, score_, ('add', (move[1][0], move[1][2])))
+        score_ = objective_cmin_incr(s, score_, ('add', (move[1][0], move[1][2])))
     elif move[0] == 'replace':
         '''
             ('replace', (participant i1, participant i2, event j))
             -> ('remove', (i1, j)) + ('add', (i2, j))
         '''
         score_ = objective_cmin_incr(s, score_, ('remove', (move[1][0], move[1][2])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][2]] = 0
-        score_ = objective_cmin_incr(s_, score_, ('add', (move[1][1], move[1][2])))
+        score_ = objective_cmin_incr(s, score_, ('add', (move[1][1], move[1][2])))
     elif move[0] == 'swap':
         '''
             ('swap', (participant i1, participant i2, event j1, event j2))
             -> ('move', (i1, j1, j2)) + ('move', (i2, j2, j1))
         '''
         score_ = objective_cmin_incr(s, score_, ('move', (move[1][0], move[1][2], move[1][3])))
-        s_ = [ss[:] for ss in s]
-        s_[move[1][0]][move[1][2]] = 0
-        s_[move[1][0]][move[1][3]] = 1
-        score_ = objective_cmin_incr(s_, score_, ('move', (move[1][1], move[1][3], move[1][2])))
+        score_ = objective_cmin_incr(s, score_, ('move', (move[1][1], move[1][3], move[1][2])))
     return score_
 
 '''
@@ -542,10 +533,10 @@ def objective_compound(s):
     subscore.weight = 0.5
     score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)'''
-    subscore = objective_emin(s)
+    '''subscore = objective_emin(s)
     subscore.weight = 1
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)
+    score.subscores.append(subscore)'''
     '''! FIXME objective_emin and objective_cmin not consistent neither!'''
     '''! FIXME objective_median_age and objective_sex_ratio not consistent'''
     '''subscore = objective_median_age(s)
@@ -554,10 +545,10 @@ def objective_compound(s):
     subscore = objective_sex_ratio(s)
     score.total += subscore.total
     score.subscores.append(subscore)'''
-    '''subscore = objective_cmin(s)
-    subscore.weight = 0.25
+    subscore = objective_cmin(s)
+    subscore.weight = 1
     score.total += (subscore.weight * subscore.total)
-    score.subscores.append(subscore)'''
+    score.subscores.append(subscore)
     '''subscore = objective_friends(s)
     subscore.weight = 0.5
     score.total += (subscore.weight * subscore.total)
