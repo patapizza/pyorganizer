@@ -553,7 +553,6 @@ def objective_compound(s):
     subscore.weight = 0.2
     score.total += (subscore.weight * subscore.total)
     score.subscores.append(subscore)
-    print("s_init compound score: {}".format(score.total))
     return score
 
 
@@ -931,7 +930,7 @@ def objective_sex_ratio_incr(s, score, move):
     Selection function of the Best-Neighbor heuristic.
     Chooses the neighbor with the best evaluation (randomly).
     input:
-        _s_legal: a list of (solution, move) pairs
+        _s_legal: a generator of (solution, move) pairs
     output:
         a pair among _s_legal for which the objective is maximum, uniformly randomly, paired with its score (Score object)
 '''
@@ -951,7 +950,7 @@ def selection_best(s_legal):
     Selection function of the Best-K-Neighbors heuristic.
     Chooses randomly a neighbor among the best k.
     input:
-        _s_legal: a list of (solution, move) pairs
+        _s_legal: a generator of (solution, move) pairs
     output:
         a pair among _s_legal for which the objective is among the status.k best
 '''
@@ -967,7 +966,7 @@ def selection_best_k(s_legal):
     Selection function of the First Improvement heuristic.
     Chooses the first neighbor improving the current solution objective.
     input:
-        _s_legal: a list of (solution, move) pairs
+        _s_legal: a generator of (solution, move) pairs
     output:
         the first pair among _s_legal for which the objective outperfoms status.s_score, paired with its score (Score object)
         if none, same as selection_best
@@ -1008,13 +1007,15 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
     improving = status.improving
     while status.attempts and improving and time.time() - start < status.allowed_time:
         s_neighbors = [s_neighbor for s_neighbor in neighborhood(status.s_)]
-        s_legal = [s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu)]
-        if len(s_legal) == 0:
+        s_legal = (s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu))
+        try:
+            status.s_score, s_ = selection(s_legal)
+        except ValueError:
             '''
                 All neighbors contain tabu-active elements.
                 Let's get oldest tabu attributes out of _tabu and readapt age.
                 This should happen at most once for each _attempts value because each user indice is present within some move.
-                FIXME: sometimes, len(s_legal) == 0 afterwards! It happens when the user indice of the oldest is present twice in tabu...
+                FIXME: sometimes, len(s_legal) == 0 afterwards! It happens when the user indice of the oldest is present twice in tabu... shouldn't happen, since if tabu-active, not legal!
             '''
             aging = status.tenure + status.attempts - tabu[0][0]
             tabu_ = []
@@ -1022,8 +1023,8 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
                 tabu_.append((tabu_element[0] + aging, tabu_element[1]))
             tabu = tabu_
             expire_features(tabu, status.attempts)
-            s_legal = [s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu)]
-        status.s_score, s_ = selection(s_legal)
+            s_legal = (s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu))
+            status.s_score, s_ = selection(s_legal)
         status.s_, s_move = s_
         if status.s_score.total > status.s_star_score.total:
             if status.s_score.total - status.s_star_score.total >= status.delta:
@@ -1034,7 +1035,7 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
             tabu.append((status.attempts, participant))
         expire_features(tabu, status.attempts)
         status.attempts -= 1
-        #improving -= 1
+        improving -= 1
     return (status.s_star, status.s_star_score.total)
 
 '''

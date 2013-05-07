@@ -96,38 +96,37 @@ class TSTest(unittest.TestCase):
     #@unittest.skip("later")
     def test_selection(self):
         n = 100
-        m = 100
+        m = 50
+        loops = 50
         gen = Generator(n, m)
         status = Status(gen.p, gen.c, gen.d)
+        status.set_cf(gen.cf)
+        status.set_emin(gen.emin)
         status.set_emax(gen.emax)
-        status.chosen_ones = gen.chosen_ones
+        status.set_age(gen.age)
+        status.set_mage(gen.mage)
+        status.set_male(gen.male)
+        status.set_sratio(gen.sratio)
+        status.set_cmin(gen.cmin)
+        #status.chosen_ones = gen.chosen_ones
+        status.allowed_time = 3000
+        status.improving = 1
+        status.delta = 1
         status.set_status()
         init = initial_solution_bottom_up(gen.p, gen.c, gen.d)
         results = {}
-        loops = 50
+        attempts = [10, 20, 50, 100]
+        tenures = [0, 1, 2, 5]
+        legal = [is_legal_not_tabu, is_legal_not_tabu_aspiration]
         for i in range(loops):
-            attempts = [10, 20, 50, 100]
-            tenures = [1, 2, 5, 10]
-            l_function = [is_legal_not_tabu, is_legal_not_tabu_aspiration]
             for attempt in attempts:
                 print("{} attempts".format(attempt))
                 for tenure in tenures:
                     print("Tenure value: {}".format(tenure))
-                    for aspiration in l_function:
+                    for aspiration in legal:
                         print("Legal function: {}".format(aspiration))
                         status.attempts = attempt
                         status.tenure = tenure
-                        status.improving = 5 # ?
-                        status.delta = 50 # ?
-                        status.set_cf(gen.cf)
-                        status.set_emin(gen.emin)
-                        status.set_emax(gen.emax)
-                        status.set_age(gen.age)
-                        status.set_mage(gen.mage)
-                        status.set_male(gen.male)
-                        status.set_sratio(gen.sratio)
-                        status.set_cmin(gen.cmin)
-                        status.allowed_time = 60
                         start = time.time()
                         s, score = tabu_search(init, objective_compound_incr, neighborhood_all, aspiration, selection_first_improvement)
                         elapsed = time.time() - start
@@ -139,25 +138,25 @@ class TSTest(unittest.TestCase):
                         elapsed_ = time.time() - start
                         print("Solution (best 3): {} in {} sec".format(score_, elapsed_))
                         status.attempts = attempt
+                        status.k = 5
                         start = time.time()
                         s__, score__ = tabu_search(init, objective_compound_incr, neighborhood_all, aspiration, selection_best_k)
                         elapsed__ = time.time() - start
                         print("Solution (best 5): {} in {} sec".format(score__, elapsed__))
                         if i == 0:
-                            results[(attempt, tenure, aspiration, 0)] = [(score, elapsed)]
-                            results[(attempt, tenure, aspiration, 1)] = [(score_, elapsed_)]
-                            results[(attempt, tenure, aspiration, 2)] = [(score__, elapsed__)]
+                            results[(attempt, tenure, aspiration.__name__, "first_improvement")] = [(score, elapsed)]
+                            results[(attempt, tenure, aspiration.__name__, "best_3")] = [(score_, elapsed_)]
+                            results[(attempt, tenure, aspiration.__name__, "best_5")] = [(score__, elapsed__)]
                         else:
-                            results[(attempt, tenure, aspiration, 0)].append((score, elapsed))
-                            results[(attempt, tenure, aspiration, 1)].append((score_, elapsed_))
-                            results[(attempt, tenure, aspiration, 2)].append((score__, elapsed__))
-        for item in sorted(results.items()):
-            for k, v in item:
-                score_all, elapsed_all = 0, 0
-                for score, elapsed in v:
-                    score_all += score
-                    elapsed_all += elapsed
-                print("{} -> {} in {} sec (average on {} iterations)".format(k, score_all / loops, elapsed_all / loops, loops))
+                            results[(attempt, tenure, aspiration.__name__, "first_improvement")].append((score, elapsed))
+                            results[(attempt, tenure, aspiration.__name__, "best_3")].append((score_, elapsed_))
+                            results[(attempt, tenure, aspiration.__name__, "best_5")].append((score__, elapsed__))
+        for k, v in sorted(results.items()):
+            score_all, elapsed_all = 0, 0
+            for score, elapsed in v:
+                score_all += score
+                elapsed_all += elapsed
+            print("{} -> {:.4f} in {:.2f} sec (average on {} iterations)".format(k, score_all / loops, elapsed_all / loops, loops))
 
 if __name__ == '__main__':
     unittest.main()
