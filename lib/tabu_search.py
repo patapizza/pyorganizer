@@ -57,6 +57,7 @@ class Status:
         self.chosen_ones = {}
         '''setting default time allowed for search'''
         self.allowed_time = 60
+        self.start = None
 
     '''
         Sets the age vector of participants.
@@ -996,16 +997,18 @@ def selection_first_improvement(s_legal):
     output:
         the best solution found after _attemps iterations and its score as a pair
 '''
-def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
-    start = time.time()
+def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu_aspiration, selection=selection_best):
+    if not status.start:
+        status.start = time.time()
     status.objective = objective
     status.s_star = s
     status.s_star_score = globals()[objective.__name__.replace('_incr', '')](status.s_star)
     status.s_ = status.s_star
     status.s_score = status.s_star_score
     tabu = []
+    attempts = status.attempts
     improving = status.improving
-    while status.attempts and improving and time.time() - start < status.allowed_time:
+    while attempts and improving and time.time() - status.start < status.allowed_time:
         s_neighbors = [s_neighbor for s_neighbor in neighborhood(status.s_)]
         s_legal = (s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu))
         try:
@@ -1017,12 +1020,12 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
                 This should happen at most once for each _attempts value because each user indice is present within some move.
                 FIXME: sometimes, len(s_legal) == 0 afterwards! It happens when the user indice of the oldest is present twice in tabu... shouldn't happen, since if tabu-active, not legal!
             '''
-            aging = status.tenure + status.attempts - tabu[0][0]
+            aging = status.tenure + attempts - tabu[0][0]
             tabu_ = []
             for tabu_element in tabu:
                 tabu_.append((tabu_element[0] + aging, tabu_element[1]))
             tabu = tabu_
-            expire_features(tabu, status.attempts)
+            expire_features(tabu, attempts)
             s_legal = (s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu))
             status.s_score, s_ = selection(s_legal)
         status.s_, s_move = s_
@@ -1032,9 +1035,9 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
             status.s_star = status.s_
             status.s_star_score = status.s_score
         for participant in extract_tabu_elements(s_move):
-            tabu.append((status.attempts, participant))
-        expire_features(tabu, status.attempts)
-        status.attempts -= 1
+            tabu.append((attempts, participant))
+        expire_features(tabu, attempts)
+        attempts -= 1
         improving -= 1
     return (status.s_star, status.s_star_score.total)
 
@@ -1049,13 +1052,15 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
     output:
         the best solution found after _restarts iterations and its score as a pair
 '''
-def tabu_search_restarts(initial_solution=initial_solution_top_down, objective=objective_friends_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu, selection=selection_best):
-    s_star, s_star_score = None, 0
-    while status.restarts:
+def tabu_search_restarts(initial_solution=initial_solution_bottom_up, objective=objective_compound_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu_aspiration, selection=selection_best):
+    status.start = time.time()
+    s_star, s_star_score = None, float("-inf")
+    restarts = status.restarts
+    while restarts and time.time() - status.start < status.allowed_time:
         s_init = initial_solution(status.p, status.c, status.d)
         s, s_score = tabu_search(s_init, objective, neighborhood, is_legal, selection)
         if s_score > s_star_score:
             s_star_score = s_score
             s_star = s
-        status.restarts -= 1
+        restarts -= 1
     return (s_star, s_star_score)

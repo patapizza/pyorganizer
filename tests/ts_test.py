@@ -95,9 +95,9 @@ class TSTest(unittest.TestCase):
 
     #@unittest.skip("later")
     def test_selection(self):
-        n = 100
-        m = 50
-        loops = 50
+        n = 50
+        m = 100
+        loops = 1
         gen = Generator(n, m)
         status = Status(gen.p, gen.c, gen.d)
         status.set_cf(gen.cf)
@@ -112,6 +112,7 @@ class TSTest(unittest.TestCase):
         status.allowed_time = 3000
         status.improving = 1
         status.delta = 1
+        status.restarts = 10
         status.set_status()
         init = initial_solution_bottom_up(gen.p, gen.c, gen.d)
         results = {}
@@ -120,27 +121,25 @@ class TSTest(unittest.TestCase):
         legal = [is_legal_not_tabu, is_legal_not_tabu_aspiration]
         for i in range(loops):
             for attempt in attempts:
+                status.attempts = attempt
                 print("{} attempts".format(attempt))
                 for tenure in tenures:
+                    status.tenure = tenure
                     print("Tenure value: {}".format(tenure))
                     for aspiration in legal:
                         print("Legal function: {}".format(aspiration))
-                        status.attempts = attempt
-                        status.tenure = tenure
                         start = time.time()
-                        s, score = tabu_search(init, objective_compound_incr, neighborhood_all, aspiration, selection_first_improvement)
+                        s, score = tabu_search_restarts(initial_solution_bottom_up, objective_compound_incr, neighborhood_all, aspiration, selection_first_improvement)
                         elapsed = time.time() - start
                         print("Solution (first improvement): {} in {} sec".format(score, elapsed))
-                        status.attempts = attempt
                         status.k = 3
                         start = time.time()
-                        s_, score_ = tabu_search(init, objective_compound_incr, neighborhood_all, aspiration, selection_best_k)
+                        s_, score_ = tabu_search_restarts(initial_solution_bottom_up, objective_compound_incr, neighborhood_all, aspiration, selection_best_k)
                         elapsed_ = time.time() - start
                         print("Solution (best 3): {} in {} sec".format(score_, elapsed_))
-                        status.attempts = attempt
                         status.k = 5
                         start = time.time()
-                        s__, score__ = tabu_search(init, objective_compound_incr, neighborhood_all, aspiration, selection_best_k)
+                        s__, score__ = tabu_search_restarts(initial_solution_bottom_up, objective_compound_incr, neighborhood_all, aspiration, selection_best_k)
                         elapsed__ = time.time() - start
                         print("Solution (best 5): {} in {} sec".format(score__, elapsed__))
                         if i == 0:
