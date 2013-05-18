@@ -1,6 +1,22 @@
 #!/usr/bin/python
 
-import math
+# Copyright 2012, 2013 Yves Deville, Jean-Baptiste Mairy, Julien Odent
+#
+# This file is part of pyorganizer.
+#
+# pyorganizer is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# pyorganizer is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with pyorganizer.  If not, see <http://www.gnu.org/licenses/>.
+
 import psycopg2
 import time
 import sys
@@ -132,7 +148,9 @@ def check_declines(cur):
     return 1 if len(cur.fetchall()) > 0 else 0
 
 if __name__ == "__main__":
-    params = "dbname=db host=localhost port=5432 user=foo password=bar"
+    params = "dbname=dauascre1055ft host=ec2-54-243-129-149.compute-1.amazonaws.com port=5432 user=socxkxdtrjhzld password=NxE_6PoOnApdQO5758kyPPuSot sslmode=require"
+    #params = "dbname=eorganizer host=localhost port=5432 user=eorganizer password=30rg4n1z3r"
+    #params = "dbname=db host=localhost port=5432 user=foo password=bar"
 
     declines = 1
     while declines:
