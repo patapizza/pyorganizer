@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with pyorganizer.  If not, see <http://www.gnu.org/licenses/>.
 
+import math
 import psycopg2
 import time
 import sys
@@ -176,24 +177,26 @@ if __name__ == "__main__":
         print("Emax: {}".format(status.emax))
 
         '''setting meta-parameters'''
-        status.attempts = 100
-        status.tenure = 1
+        status.attempts = 100000
+        status.restarts = 100000
+        status.k = 3
+        status.tenure = 2
         status.improving = 5
-        status.delta = 2
-        status.allowed_time = 60
+        status.delta = 1
+        status.allowed_time = 3000
         status.set_status()
 
         '''launching search'''
         if verbose:
             print("Launching {} search... ({} seconds)".format(("light" if len(declines) > 0 else "heavy"), status.allowed_time))
-        init = initial_solution_bottom_up(status.p, status.c, status.d)
-        neighborhood = neighborhood_all
+        s, score = None, 0
         if len(declines) > 0:
-            neighborhood = neighborhood_add
             status.attempts = len(declines) * len(events)
             status.tenure = 0
             init = initial_solution_confirmed_only()
-        s, score = tabu_search(init, objective_compound_incr, neighborhood, is_legal_not_tabu, selection_best_k)
+            s, score = tabu_search(initial_solution_bottom_up(status.p, status.c, status.d), objective_compound_incr, neighborhood_add, is_legal_not_tabu, selection_best_k)
+        else:
+            s, score = tabu_search_restarts(initial_solution_bottom_up, objective_compound_incr, neighborhood_all, is_legal_not_tabu, selection_best_k)
         print("Solution score: {}".format(score))
         print("Solution: {}".format(s))
 
