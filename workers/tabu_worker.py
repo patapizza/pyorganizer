@@ -149,9 +149,7 @@ def check_declines(cur):
     return 1 if len(cur.fetchall()) > 0 else 0
 
 if __name__ == "__main__":
-    params = "dbname=dauascre1055ft host=ec2-54-243-129-149.compute-1.amazonaws.com port=5432 user=socxkxdtrjhzld password=NxE_6PoOnApdQO5758kyPPuSot sslmode=require"
-    #params = "dbname=eorganizer host=localhost port=5432 user=eorganizer password=30rg4n1z3r"
-    #params = "dbname=db host=localhost port=5432 user=foo password=bar"
+    params = "dbname=db host=localhost port=5432 user=foo password=bar"
 
     declines = 1
     while declines:
