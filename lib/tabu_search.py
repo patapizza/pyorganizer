@@ -284,7 +284,7 @@ def initial_solution_top_down(p, c, d):
         p_values.remove((i, j))
         if (i, j) in status.chosen_ones:
             continue
-        if row_capacity[i] > status.emax[i] or (c[j] != 0 and col_capacity[j] > c[j]) or len(set(s_indices[i]) & set(d_indices[j])) > 0:
+        if (row_capacity[i] > status.emax[i] and status.emax[i] != 0) or (c[j] != 0 and col_capacity[j] > c[j]) or len(set(s_indices[i]) & set(d_indices[j]) - {j}) > 0:
             s[i][j] = 0
             row_capacity[i] -= 1
             col_capacity[j] -= 1
@@ -1014,8 +1014,8 @@ def selection_first_improvement(s_legal):
     output:
         the best solution found after _attemps iterations and its score as a pair
 '''
-def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu_aspiration, selection=selection_best):
-    if not status.start:
+def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_all, is_legal=is_legal_not_tabu_aspiration, selection=selection_best, restarts=0):
+    if not restarts:
         status.start = time.time()
     status.objective = objective
     status.s_star = s
@@ -1028,23 +1028,22 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
     while attempts and improving and time.time() - status.start < status.allowed_time:
         s_neighbors = [s_neighbor for s_neighbor in neighborhood(status.s_)]
         s_legal = (s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu))
-        try:
-            status.s_score, s_ = selection(s_legal)
-        except ValueError:
-            '''
-                All neighbors contain tabu-active elements.
-                Let's get oldest tabu attributes out of _tabu and readapt age.
-                This should happen at most once for each _attempts value because each user indice is present within some move.
-                FIXME: sometimes, len(s_legal) == 0 afterwards! It happens when the user indice of the oldest is present twice in tabu... shouldn't happen, since if tabu-active, not legal!
-            '''
-            aging = status.tenure + attempts - tabu[0][0]
-            tabu_ = []
-            for tabu_element in tabu:
-                tabu_.append((tabu_element[0] + aging, tabu_element[1]))
-            tabu = tabu_
-            expire_features(tabu, attempts)
-            s_legal = (s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu))
-            status.s_score, s_ = selection(s_legal)
+        s_ = None
+        while not s_:
+            try:
+                status.s_score, s_ = selection(s_legal)
+            except ValueError:
+                '''
+                    All neighbors contain tabu-active elements.
+                    Let's get oldest tabu attributes out of _tabu and readapt age.
+                '''
+                aging = status.tenure + attempts - tabu[0][0]
+                tabu_ = []
+                for tabu_element in tabu:
+                    tabu_.append((tabu_element[0] + aging, tabu_element[1]))
+                tabu = tabu_
+                expire_features(tabu, attempts)
+                s_legal = (s_neighbor for s_neighbor in s_neighbors if is_legal(s_neighbor, tabu))
         status.s_, s_move = s_
         if status.s_score.total > status.s_star_score.total:
             if status.s_score.total - status.s_star_score.total >= status.delta:
@@ -1055,7 +1054,8 @@ def tabu_search(s, objective=objective_compound_incr, neighborhood=neighborhood_
             tabu.append((attempts, participant))
         expire_features(tabu, attempts)
         attempts -= 1
-        improving -= 1
+        if restarts:
+            improving -= 1
     return (status.s_star, status.s_star_score.total)
 
 '''
@@ -1075,7 +1075,7 @@ def tabu_search_restarts(initial_solution=initial_solution_bottom_up, objective=
     restarts = status.restarts
     while restarts and time.time() - status.start < status.allowed_time:
         s_init = initial_solution(status.p, status.c, status.d)
-        s, s_score = tabu_search(s_init, objective, neighborhood, is_legal, selection)
+        s, s_score = tabu_search(s_init, objective, neighborhood, is_legal, selection, 1)
         if s_score > s_star_score:
             s_star_score = s_score
             s_star = s
